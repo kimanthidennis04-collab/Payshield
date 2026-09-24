@@ -1,68 +1,97 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
-const path = require('path');
-
 const prisma = new PrismaClient();
 const app = express();
+const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, 'public')));
 
-// 1. Health Check
-app.get('/api/health', async (req, res) => {
+// Startup check: Ensure default Organization and a default Client exist
+async function ensureDefaultData() {
   try {
-    await prisma.$queryRaw`SELECT 1`;
-    res.json({ success: true, database: 'connected' });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    let org = await prisma.organization.findUnique({ where: { id: 1 } });
+    if (!org) {
+      org = await prisma.organization.create({
+        data: { id: 1, name: 'PayShield Enterprise' }
+      });
+      console.log('Default organization created (ID: 1)');
+    }
+
+    let client = await prisma.client.findFirst({ where: { organizationId: 1 } });
+    if (!client) {
+      await prisma.client.create({
+        data: {
+          organizationId: 1,
+          name: 'Default Test Client',
+          email: 'test@example.com',
+          phone: '+254700000000'
+        }
+      });
+      console.log('Default client created');
+    }
+  } catch (err) {
+    console.error('Error seeding default data:', err.message);
   }
+}
+
+// 1. Dashboard Route
+app.get('/', (req, res) => {
+  res.send(`
+    <html>
+      <head><title>PayShield Enterprise Dashboard</title></head>
+      <body style="font-family: Arial; padding: 40px; background: #f4f6f8;">
+        <h2>PayShield Enterprise Financial Platform ($31+ Tier)</h2>
+        <p>Platform status: <strong>Active & Scalable</strong></p>
+        <button onclick="checkInvoice()" style="padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer;">Check Invoice & Client</button>
+        <button onclick="simulatePayment()" style="padding: 10px 20px; background: #28a745; color: white; border: none; cursor: pointer; margin-left: 10px;">Simulate Payment & Webhook</button>
+        <div id="output" style="margin-top: 20px; background: white; padding: 15px; border: 1px solid #ccc; font-family: monospace;"></div>
+        <script>
+          async function checkInvoice() {
+            try {
+              const res = await fetch('/api/invoices/INV-1001');
+              const data = await res.json();
+              document.getElementById('output').innerText = JSON.stringify(data, null, 2);
+            } catch(e) { document.getElementById('output').innerText = e.message; }
+          }
+          async function simulatePayment() {
+            try {
+              const res = await fetch('/api/webhook/simulate', { 
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify({invoiceNumber: 'INV-1001', amount: 1700}) 
+              });
+              const data = await res.json();
+              document.getElementById('output').innerText = JSON.stringify(data, null, 2);
+            } catch(e) { document.getElementById('output').innerText = e.message; }
+          }
+        </script>
+      </body>
+    </html>
+  `);
 });
 
-// 2. Metrics
-app.get('/api/metrics', async (req, res) => {
-  try {
-    const totalInvoices = await prisma.invoice.count();
-    const paidInvoices = await prisma.invoice.count({ where: { status: 'PAID' } });
-    const partiallyPaidInvoices = await prisma.invoice.count({ where: { status: 'PARTIAL' } });
-    
-    const invoices = await prisma.invoice.findMany();
-    const outstandingAmount = invoices.reduce((sum, inv) => sum + (inv.amount - inv.amountPaid), 0);
-
-    res.json({
-      success: true,
-      metrics: {
-        totalInvoices,
-        paidInvoices,
-        partiallyPaidInvoices,
-        outstandingAmount
-      },
-      organization: { currency: 'USD' }
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// 3. Get Invoice
+// 2. Get or Auto-Create Invoice with Client Relation
 app.get('/api/invoices/:invoiceNumber', async (req, res) => {
   try {
     const { invoiceNumber } = req.params;
     let invoice = await prisma.invoice.findUnique({
       where: { invoiceNumber },
-      include: { payments: true }
+      include: { client: true, payments: true }
     });
 
     if (!invoice) {
-      // Auto-create for seamless testing
+      const defaultClient = await prisma.client.findFirst({ where: { organizationId: 1 } });
+      
       invoice = await prisma.invoice.create({
         data: {
-          invoiceNumber,
+          invoiceNumber: invoiceNumber,
           amount: 1700.00,
-          customerEmail: 'test@example.com',
-          status: 'PENDING'
+          status: 'PENDING',
+          organizationId: 1,
+          clientId: defaultClient.id
         },
-        include: { payments: true }
+        include: { client: true, payments: true }
       });
     }
 
@@ -72,56 +101,54 @@ app.get('/api/invoices/:invoiceNumber', async (req, res) => {
   }
 });
 
-// 4. Webhook Simulator
-app.post('/api/webhook/payment-received', async (req, res) => {
+// 3. Simulate Payment Webhook Route
+app.post('/api/webhook/simulate', async (req, res) => {
   try {
-    const { invoiceNumber, amountPaid, paymentReference } = req.body;
-if (!amountPaid || amountPaid <= 0) {
-      return res.status(400).json({ success: false, error: "Invalid payment amount." });
-    }
+    const { invoiceNumber, amount } = req.body;
     let invoice = await prisma.invoice.findUnique({ where: { invoiceNumber } });
+
     if (!invoice) {
+      const defaultClient = await prisma.client.findFirst({ where: { organizationId: 1 } });
       invoice = await prisma.invoice.create({
-        data: { invoiceNumber, amount: 1700.00, customerEmail: 'test@example.com', status: 'PENDING' }
+        data: {
+          invoiceNumber: invoiceNumber || 'INV-1001',
+          amount: amount || 1700.00,
+          status: 'PAID',
+          organizationId: 1,
+          clientId: defaultClient.id
+        }
+      });
+    } else {
+      invoice = await prisma.invoice.update({
+        where: { invoiceNumber },
+        data: { status: 'PAID' }
       });
     }
 
     const payment = await prisma.payment.create({
       data: {
         invoiceId: invoice.id,
-        amount: Number(amountPaid),
-        reference: paymentReference || 'REF_' + Date.now()
+        amount: amount || invoice.amount,
+        status: 'SUCCESS'
       }
     });
 
-    const newAmountPaid = invoice.amountPaid + Number(amountPaid);
-    const newStatus = newAmountPaid >= invoice.amount ? 'PAID' : 'PARTIAL';
-
-    const updatedInvoice = await prisma.invoice.update({
-      where: { id: invoice.id },
-      data: { amountPaid: newAmountPaid, status: newStatus },
-      include: { payments: true }
+    // Log the webhook event
+    await prisma.webhookLog.create({
+      data: {
+        event: 'PAYMENT_SUCCESS',
+        payload: JSON.stringify({ invoiceNumber: invoice.invoiceNumber, amount: payment.amount })
+      }
     });
 
-    res.json({ success: true, message: 'Processed successfully', invoice: updatedInvoice, payment });
+    res.json({ success: true, message: 'Payment processed, client matched, & webhook logged', invoice, payment });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// 5. Payments History
-app.get('/api/invoices/:invoiceNumber/payments', async (req, res) => {
-  try {
-    const invoice = await prisma.invoice.findUnique({
-      where: { invoiceNumber: req.params.invoiceNumber },
-      include: { payments: true }
-    });
-    if (!invoice) return res.status(404).json({ success: false, error: 'Not found' });
-    res.json({ success: true, payments: invoice.payments });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
+ensureDefaultData().then(() => {
+  app.listen(PORT, () => {
+    console.log(`PayShield Enterprise running on http://localhost:${PORT}`);
+  });
 });
-
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`PayShield running on http://localhost:${PORT}`));
