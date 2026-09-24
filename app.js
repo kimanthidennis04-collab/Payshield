@@ -8,13 +8,28 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
-// Helper to get or create a safe default client
+// Bulletproof helper: Ensure Organization 1 and default client exist using upsert
 async function getOrCreateDefaultClient() {
-  let client = await prisma.client.findFirst({ where: { organizationId: 1 } });
+  // Ensure Organization with ID 1 always exists
+  const org = await prisma.organization.upsert({
+    where: { id: 1 },
+    update: {},
+    create: { 
+      id: 1, 
+      name: 'PayShield Enterprise', 
+      currency: 'USD' 
+    }
+  });
+
+  // Ensure default client exists for this organization
+  let client = await prisma.client.findFirst({ 
+    where: { organizationId: org.id } 
+  });
+  
   if (!client) {
     client = await prisma.client.create({
       data: {
-        organizationId: 1,
+        organizationId: org.id,
         name: 'Default Test Client',
         email: 'test@example.com',
         phone: '+254700000000'
@@ -24,19 +39,13 @@ async function getOrCreateDefaultClient() {
   return client;
 }
 
-// Startup check: Ensure default Organization
-async function ensureDefaultData() {
+// Startup initialization
+async function initializeApp() {
   try {
-    let org = await prisma.organization.findUnique({ where: { id: 1 } });
-    if (!org) {
-      await prisma.organization.create({
-        data: { id: 1, name: 'PayShield Enterprise', currency: 'USD' }
-      });
-      console.log('Default organization created (ID: 1)');
-    }
     await getOrCreateDefaultClient();
+    console.log('Database initialized successfully.');
   } catch (err) {
-    console.error('Error seeding default data:', err.message);
+    console.error('Error initializing database:', err.message);
   }
 }
 
@@ -53,6 +62,7 @@ app.get('/api/health', (req, res) => {
 // 3. Metrics Route
 app.get('/api/metrics', async (req, res) => {
   try {
+    await getOrCreateDefaultClient();
     const invoices = await prisma.invoice.findMany({ include: { payments: true } });
     const totalInvoices = invoices.length;
     const paidInvoices = invoices.filter(i => i.status === 'PAID').length;
@@ -186,7 +196,7 @@ app.post('/api/webhook/payment-received', async (req, res) => {
   }
 });
 
-ensureDefaultData().then(() => {
+initializeApp().then(() => {
   app.listen(PORT, () => {
     console.log(`PayShield Enterprise running on http://localhost:${PORT}`);
   });
