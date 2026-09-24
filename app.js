@@ -8,29 +8,33 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
-// Startup check: Ensure default Organization and a default Client exist
+// Helper to get or create a safe default client
+async function getOrCreateDefaultClient() {
+  let client = await prisma.client.findFirst({ where: { organizationId: 1 } });
+  if (!client) {
+    client = await prisma.client.create({
+      data: {
+        organizationId: 1,
+        name: 'Default Test Client',
+        email: 'test@example.com',
+        phone: '+254700000000'
+      }
+    });
+  }
+  return client;
+}
+
+// Startup check: Ensure default Organization
 async function ensureDefaultData() {
   try {
     let org = await prisma.organization.findUnique({ where: { id: 1 } });
     if (!org) {
-      org = await prisma.organization.create({
+      await prisma.organization.create({
         data: { id: 1, name: 'PayShield Enterprise', currency: 'USD' }
       });
       console.log('Default organization created (ID: 1)');
     }
-
-    let client = await prisma.client.findFirst({ where: { organizationId: 1 } });
-    if (!client) {
-      await prisma.client.create({
-        data: {
-          organizationId: 1,
-          name: 'Default Test Client',
-          email: 'test@example.com',
-          phone: '+254700000000'
-        }
-      });
-      console.log('Default client created');
-    }
+    await getOrCreateDefaultClient();
   } catch (err) {
     console.error('Error seeding default data:', err.message);
   }
@@ -91,7 +95,7 @@ app.get('/api/invoices/:invoiceNumber', async (req, res) => {
     });
 
     if (!invoice) {
-      const defaultClient = await prisma.client.findFirst({ where: { organizationId: 1 } });
+      const defaultClient = await getOrCreateDefaultClient();
       
       invoice = await prisma.invoice.create({
         data: {
@@ -130,7 +134,7 @@ app.get('/api/invoices/:invoiceNumber/payments', async (req, res) => {
   }
 });
 
-// 6. Webhook Payment Received Route (matching index.html)
+// 6. Webhook Payment Received Route
 app.post('/api/webhook/payment-received', async (req, res) => {
   try {
     const { invoiceNumber, amountPaid } = req.body;
@@ -140,7 +144,7 @@ app.post('/api/webhook/payment-received', async (req, res) => {
     });
 
     if (!invoice) {
-      const defaultClient = await prisma.client.findFirst({ where: { organizationId: 1 } });
+      const defaultClient = await getOrCreateDefaultClient();
       invoice = await prisma.invoice.create({
         data: {
           invoiceNumber: invoiceNumber || 'INV-1001',
