@@ -4,13 +4,13 @@
   "description": "PayShield B2B invoice and payment protection engine",
   "main": "app.js",
   "scripts": {
-    "start": "node app.js",
-"build": "npx prisma db push",
-    "dev": "node --watch app.js",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio"
-  },
+   "scripts": {
+  "start": "npx prisma db push && node app.js",
+  "dev": "node --watch app.js",
+  "prisma:generate": "prisma generate",
+  "prisma:migrate": "prisma migrate dev",
+  "prisma:studio": "prisma studio"
+},
   "dependencies": {
     "@prisma/client": "^6.16.0",
     "express": "^5.1.0"
