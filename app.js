@@ -8,20 +8,17 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
-// Bulletproof helper: Ensure Organization 1 and default client exist using upsert
+// Helper: Ensure Organization and default client exist safely
 async function getOrCreateDefaultClient() {
-  // Ensure Organization with ID 1 always exists
   const org = await prisma.organization.upsert({
     where: { id: 1 },
     update: {},
     create: { 
-      id: 1, 
       name: 'PayShield Enterprise', 
       currency: 'USD' 
     }
   });
 
-  // Ensure default client exists for this organization
   let client = await prisma.client.findFirst({ 
     where: { organizationId: org.id } 
   });
@@ -112,7 +109,7 @@ app.get('/api/invoices/:invoiceNumber', async (req, res) => {
           invoiceNumber: invoiceNumber,
           amount: 1700.00,
           status: 'PENDING',
-          organizationId: 1,
+          organizationId: defaultClient.organizationId,
           clientId: defaultClient.id
         },
         include: { client: true, payments: true }
@@ -160,7 +157,7 @@ app.post('/api/webhook/payment-received', async (req, res) => {
           invoiceNumber: invoiceNumber || 'INV-1001',
           amount: 1700.00,
           status: 'PENDING',
-          organizationId: 1,
+          organizationId: defaultClient.organizationId,
           clientId: defaultClient.id
         },
         include: { payments: true }
