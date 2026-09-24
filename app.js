@@ -38,39 +38,9 @@ async function ensureDefaultData() {
 
 // 1. Dashboard Route
 app.get('/', (req, res) => {
-  res.send(`
-    <html>
-      <head><title>PayShield Enterprise Dashboard</title></head>
-      <body style="font-family: Arial; padding: 40px; background: #f4f6f8;">
-        <h2>PayShield Enterprise Financial Platform ($31+ Tier)</h2>
-        <p>Platform status: <strong>Active & Scalable</strong></p>
-        <button onclick="checkInvoice()" style="padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer;">Check Invoice & Client</button>
-        <button onclick="simulatePayment()" style="padding: 10px 20px; background: #28a745; color: white; border: none; cursor: pointer; margin-left: 10px;">Simulate Payment & Webhook</button>
-        <div id="output" style="margin-top: 20px; background: white; padding: 15px; border: 1px solid #ccc; font-family: monospace;"></div>
-        <script>
-          async function checkInvoice() {
-            try {
-              const res = await fetch('/api/invoices/INV-1001');
-              const data = await res.json();
-              document.getElementById('output').innerText = JSON.stringify(data, null, 2);
-            } catch(e) { document.getElementById('output').innerText = e.message; }
-          }
-          async function simulatePayment() {
-            try {
-              const res = await fetch('/api/webhook/simulate', { 
-                method: 'POST', 
-                headers: {'Content-Type': 'application/json'}, 
-                body: JSON.stringify({invoiceNumber: 'INV-1001', amount: 1700}) 
-              });
-              const data = await res.json();
-              document.getElementById('output').innerText = JSON.stringify(data, null, 2);
-            } catch(e) { document.getElementById('output').innerText = e.message; }
-          }
-        </script>
-      </body>
-    </html>
-  `);
+    res.sendFile(__dirname + '/public/index.html');
 });
+         
 
 // 2. Get or Auto-Create Invoice with Client Relation
 app.get('/api/invoices/:invoiceNumber', async (req, res) => {
