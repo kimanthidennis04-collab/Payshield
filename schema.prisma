@@ -1,30 +1,56 @@
 datasource db {
   provider = "sqlite"
-  url      = "file:./dev.db"
+  url      = env("DATABASE_URL")
 }
 
 generator client {
   provider = "prisma-client-js"
 }
 
+model Organization {
+  id        Int      @id @default(autoincrement())
+  name      String   @default("PayShield Enterprise")
+  clients   Client[]
+  invoices  Invoice[]
+  createdAt DateTime @default(now())
+}
+
+model Client {
+  id             Int          @id @default(autoincrement())
+  organizationId Int
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  name           String
+  email          String
+  phone          String?
+  invoices       Invoice[]
+  createdAt      DateTime     @default(now())
+}
+
 model Invoice {
-  id            String    @id @default(uuid())
-  invoiceNumber String    @unique
-  amount        Float
-  amountPaid    Float     @default(0.0)
-  currency      String    @default("USD")
-  status        String    @default("PENDING")
-  customerEmail String
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  payments      Payment[]
+  id             Int          @id @default(autoincrement())
+  organizationId Int
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  clientId       Int
+  client         Client       @relation(fields: [clientId], references: [id])
+  invoiceNumber  String       @unique
+  amount         Float
+  status         String       @default("PENDING") // PENDING, PAID, OVERDUE
+  payments       Payment[]
+  createdAt      DateTime     @default(now())
 }
 
 model Payment {
-  id        String   @id @default(uuid())
-  invoiceId String
-  invoice   Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  id        Int      @id @default(autoincrement())
+  invoiceId Int
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id])
   amount    Float
-  reference String   @unique
+  status    String   @default("SUCCESS")
+  createdAt DateTime @default(now())
+}
+
+model WebhookLog {
+  id        Int      @id @default(autoincrement())
+  event     String
+  payload   String
   createdAt DateTime @default(now())
 }
