@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="description"
+        content="PayShield Engine Dashboard"
+    >
+
+    <link
+        rel="icon"
+        href="data:,"
+    >
+
+    <title>PayShield Engine Dashboard</title>
+
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f9;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+
+        h1 {
+            color: #1a73e8;
+            margin-top: 0;
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+
+        .metrics {
+            display: grid;
+            grid-template-columns:
+                repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+        }
+
+        .metric {
+            background: #f8f9fa;
+            padding: 18px;
+            border-radius: 8px;
+        }
+
+        .metric h3 {
+            margin-top: 0;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .metric-value {
+            font-size: 25px;
+            font-weight: bold;
+            color: #1a73e8;
+        }
+
+        label {
+            display: block;
+            margin-top: 12px;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input {
+            width: 100%;
+            padding: 11px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 15px;
+        }
+
+        button {
+            background: #1a73e8;
+            color: white;
+            border: none;
+            padding: 11px 18px;
+            font-size: 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 15px;
+            margin-right: 8px;
+        }
+
+        button:hover {
+            background: #1557b0;
+        }
+
+        button.secondary {
+            background: #555;
+        }
+
+        pre {
+            background: #23241f;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            background: #f1f3f4;
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+<div class="container">
+
+
+    <div class="header">
+
+        <h1>
+            🛡️ PayShield Engine
+        </h1>
+
+        <p>
+            Invoice and payment monitoring dashboard.
+        </p>
+
+        <div id="healthStatus"
+             class="status">
+            Checking server...
+        </div>
+
+    </div>
+
+
+    <!-- Metrics -->
+
+    <div class="card">
+
+        <h2>
+            Live Metrics
+        </h2>
+
+        <div class="metrics">
+
+            <div class="metric">
+                <h3>Total Invoices</h3>
+                <div
+                    id="totalInvoices"
+                    class="metric-value"
+                >
+                    -
+                </div>
+            </div>
+
+            <div class="metric">
+                <h3>Paid Invoices</h3>
+                <div
+                    id="paidInvoices"
+                    class="metric-value"
+                >
+                    -
+                </div>
+            </div>
+
+            <div class="metric">
+                <h3>Partially Paid</h3>
+                <div
+                    id="partialInvoices"
+                    class="metric-value"
+                >
+                    -
+                </div>
+            </div>
+
+            <div class="metric">
+                <h3>Outstanding</h3>
+                <div
+                    id="outstanding"
+                    class="metric-value"
+                >
+                    -
+                </div>
+            </div>
+
+        </div>
+
+        <button onclick="loadMetrics()">
+            Refresh Metrics
+        </button>
+
+    </div>
+
+
+    <!-- Invoice -->
+
+    <div class="card">
+
+        <h2>
+            Check Invoice
+        </h2>
+
+        <label for="invoiceNumber">
+            Invoice Number
+        </label>
+
+        <input
+            id="invoiceNumber"
+            type="text"
+            value="INV-1001"
+            placeholder="INV-1001"
+        >
+
+        <button onclick="loadInvoice()">
+            Check Invoice
+        </button>
+
+        <pre id="invoiceOutput">
+Enter an invoice number and click "Check Invoice".
+        </pre>
+
+    </div>
+
+
+    <!-- Webhook -->
+
+    <div class="card">
+
+        <h2>
+            🧪 Test Payment Webhook
+        </h2>
+
+        <p>
+            This is a development simulator.
+            It does not represent a real payment-provider webhook.
+        </p>
+
+
+        <label for="paymentInvoice">
+            Invoice Number
+        </label>
+
+        <input
+            id="paymentInvoice"
+            type="text"
+            value="INV-1001"
+        >
+
+
+        <label for="paymentAmount">
+            Payment Amount
+        </label>
+
+        <input
+            id="paymentAmount"
+            type="number"
+            min="0.01"
+            step="0.01"
+            value="1700"
+        >
+
+
+        <label for="paymentCurrency">
+            Currency
+        </label>
+
+        <input
+            id="paymentCurrency"
+            type="text"
+            value="USD"
+        >
+
+
+        <button onclick="simulateWebhook()">
+            Simulate Payment
+        </button>
+
+
+        <pre id="webhookOutput">
+Payment result will appear here.
+        </pre>
+
+    </div>
+
+
+    <!-- Payment History -->
+
+    <div class="card">
+
+        <h2>
+            Payment History
+        </h2>
+
+        <button
+            class="secondary"
+            onclick="loadPayments()"
+        >
+            Load Payments
+        </button>
+
+        <pre id="paymentsOutput">
+Payment history will appear here.
+        </pre>
+
+    </div>
+
+
+</div>
+
+
+<script>
+
+
+/*
+|--------------------------------------------------------------------------
+| Health
+|--------------------------------------------------------------------------
+*/
+
+async function checkHealth() {
+
+    const output =
+        document.getElementById(
+            'healthStatus'
+        );
+
+    try {
+
+        const response =
+            await fetch(
+                '/api/health'
+            );
+
+        const data =
+            await response.json();
+
+        if (!response.ok) {
+            throw new Error(
+                data.error ||
+                `Server returned status ${response.status}`
+            );
+        }
+
+        output.textContent =
+            '✅ PayShield server is running and database is connected.';
+
+    } catch (error) {
+
+        output.textContent =
+            '❌ Server error: ' +
+            error.message;
+    }
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Metrics
+|--------------------------------------------------------------------------
+*/
+
+async function loadMetrics() {
+
+    try {
+
+        const response =
+            await fetch(
+                '/api/metrics'
+            );
+
+        const data =
+            await response.json();
+
+        if (!response.ok) {
+            throw new Error(
+                data.error ||
+                `Server returned status ${response.status}`
+            );
+        }
+
+
+        const metrics =
+            data.metrics;
+
+
+        document.getElementById(
+            'totalInvoices'
+        ).textContent =
+            metrics.totalInvoices;
+
+
+        document.getElementById(
+            'paidInvoices'
+        ).textContent =
+            metrics.paidInvoices;
+
+
+        document.getElementById(
+            'partialInvoices'
+        ).textContent =
+            metrics.partiallyPaidInvoices;
+
+
+        document.getElementById(
+            'outstanding'
+        ).textContent =
+            `${metrics.outstandingAmount} ${data.organization.currency}`;
+
+
+    } catch (error) {
+
+        console.error(
+            'Metrics error:',
+            error
+        );
+    }
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Invoice
+|--------------------------------------------------------------------------
+*/
+
+async function loadInvoice() {
+
+    const invoiceNumber =
+        document.getElementById(
+            'invoiceNumber'
+        ).value.trim();
+
+
+    const output =
+        document.getElementById(
+            'invoiceOutput'
+        );
+
+
+    if (!invoiceNumber) {
+
+        output.textContent =
+            'Please enter an invoice number.';
+
+        return;
+    }
+
+
+    try {
+
+        const response =
+            await fetch(
+                `/api/invoices/${encodeURIComponent(invoiceNumber)}`
+            );
+
+
+        const data =
+            await response.json();
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                data.error ||
+                `Server returned status ${response.status}`
+            );
+        }
+
+
+        output.textContent =
+            JSON.stringify(
+                data,
+                null,
+                2
+            );
+
+
+    } catch (error) {
+
+        output.textContent =
+            'Error loading invoice: ' +
+            error.message;
+    }
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Simulate Webhook
+|--------------------------------------------------------------------------
+*/
+
+async function simulateWebhook() {
+
+    const invoiceNumber =
+        document.getElementById(
+            'paymentInvoice'
+        ).value.trim();
+
+
+    const amount =
+        Number(
+            document.getElementById(
+                'paymentAmount'
+            ).value
+        );
+
+
+    const currency =
+        document.getElementById(
+            'paymentCurrency'
+        ).value.trim().toUpperCase();
+
+
+    const output =
+        document.getElementById(
+            'webhookOutput'
+        );
+
+
+    if (!invoiceNumber) {
+
+        output.textContent =
+            'Please enter an invoice number.';
+
+        return;
+    }
+
+
+    if (
+        !Number.isFinite(amount) ||
+        amount <= 0
+    ) {
+
+        output.textContent =
+            'Payment amount must be greater than zero.';
+
+        return;
+    }
+
+
+    try {
+
+        const eventId =
+            'evt_' +
+            crypto.randomUUID();
+
+
+        const response =
+            await fetch(
+                '/api/webhook/payment-received',
+                {
+
+                    method: 'POST',
+
+                    headers: {
+                        'Content-Type':
+                            'application/json'
+                    },
+
+                    body:
+                        JSON.stringify({
+
+                            eventId,
+
+                            invoiceNumber,
+
+                            amountPaid:
+                                amount,
+
+                            currency,
+
+                            paymentReference:
+                                'TEST_' +
+                                crypto.randomUUID()
+                        })
+                }
+            );
+
+
+        const data =
+            await response.json();
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                data.error ||
+                `Server returned status ${response.status}`
+            );
+        }
+
+
+        output.textContent =
+            JSON.stringify(
+                data,
+                null,
+                2
+            );
+
+
+        await loadMetrics();
+
+        await loadInvoiceForDashboard(
+            invoiceNumber
+        );
+
+        await loadPaymentsForDashboard(
+            invoiceNumber
+        );
+
+
+    } catch (error) {
+
+        output.textContent =
+            'Error calling webhook: ' +
+            error.message;
+    }
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Dashboard Invoice Refresh
+|--------------------------------------------------------------------------
+*/
+
+async function loadInvoiceForDashboard(
+    invoiceNumber
+) {
+
+    try {
+
+        const response =
+            await fetch(
+                `/api/invoices/${encodeURIComponent(invoiceNumber)}`
+            );
+
+
+        const data =
+            await response.json();
+
+
+        if (response.ok) {
+
+            document.getElementById(
+                'invoiceOutput'
+            ).textContent =
+                JSON.stringify(
+                    data,
+                    null,
+                    2
+                );
+        }
+
+    } catch (error) {
+
+        console.error(
+            'Invoice refresh error:',
+            error
+        );
+    }
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Load Payment History
+|--------------------------------------------------------------------------
+*/
+
+async function loadPayments() {
+
+    const invoiceNumber =
+        document.getElementById(
+            'paymentInvoice'
+        ).value.trim();
+
+
+    await loadPaymentsForDashboard(
+        invoiceNumber
+    );
+}
+
+
+async function loadPaymentsForDashboard(
+    invoiceNumber
+) {
+
+    const output =
+        document.getElementById(
+            'paymentsOutput'
+        );
+
+
+    if (!invoiceNumber) {
+
+        output.textContent =
+            'Please enter an invoice number.';
+
+        return;
+    }
+
+
+    try {
+
+        const response =
+            await fetch(
+                `/api/invoices/${encodeURIComponent(invoiceNumber)}/payments`
+            );
+
+
+        const data =
+            await response.json();
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                data.error ||
+                `Server returned status ${response.status}`
+            );
+        }
+
+
+        output.textContent =
+            JSON.stringify(
+                data,
+                null,
+                2
+            );
+
+
+    } catch (error) {
+
+        output.textContent =
+            'Error loading payments: ' +
+            error.message;
+    }
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Initial Load
+|--------------------------------------------------------------------------
+*/
+
+checkHealth();
+
+loadMetrics();
+
+</script>
+
+</body>
+
+</html>
