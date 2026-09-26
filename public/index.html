@@ -3,139 +3,145 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PayShield Dashboard</title>
-  <!-- Use a clean professional styling framework via CDN -->
+  <title>PayShield - Prisma Studio Dashboard</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background-color: #f4f6f9; font-family: system-ui, -apple-system, sans-serif; }
+    .sidebar { background: #fff; border-right: 1px solid #dee2e6; min-height: 100vh; }
+    .model-link { cursor: pointer; padding: 10px 15px; display: block; color: #333; text-decoration: none; border-radius: 4px; margin-bottom: 4px; }
+    .model-link:hover, .model-link.active { background-color: #0d6efd; color: #fff; }
+  </style>
 </head>
-<body class="bg-light">
+<body>
 
-  <div class="container py-4">
-    <header class="pb-3 mb-4 border-bottom">
-      <h1 class="h3 fw-bold text-dark">PayShield Dashboard</h1>
-      <p class="text-muted m-0">Live Database Records Overview</p>
-    </header>
-
-    <!-- Health Status Alert -->
-    <div id="healthStatus" class="alert alert-info" role="alert">
-      Checking server status...
-    </div>
-
-    <!-- Clients Overview Table Card -->
-    <div class="card shadow-sm mb-4">
-      <div class="card-header bg-white fw-bold">Clients Overview</div>
-      <div class="card-body p-0">
-        <div class="table-responsive">
-          <table class="table table-striped table-hover mb-0">
-            <thead class="table-dark">
-              <tr>
-                <th>ID</th>
-                <th>Name</th>
-                <th>Email</th>
-              </tr>
-            </thead>
-            <tbody id="table-body">
-              <tr><td colspan="3" class="text-center py-3">Loading clients...</td></tr>
-            </tbody>
-          </table>
+  <div class="container-fluid">
+    <div class="row">
+      <!-- Sidebar Models List -->
+      <nav class="col-md-3 col-lg-2 d-md-block sidebar p-3 collapse">
+        <h5 class="fw-bold text-secondary mb-3">Search models</h5>
+        <div class="list-group list-group-flush">
+          <a class="model-link active" onclick="switchModel('client', this)">Client</a>
+          <a class="model-link" onclick="switchModel('invoice', this)">Invoice</a>
+          <a class="model-link" onclick="switchModel('organization', this)">Organization</a>
+          <a class="model-link" onclick="switchModel('payment', this)">Payment</a>
+          <a class="model-link" onclick="switchModel('webhooklog', this)">WebhookLog</a>
         </div>
-      </div>
-    </div>
+      </nav>
 
-    <!-- Payment History Card -->
-    <div class="card shadow-sm mb-4">
-      <div class="card-header bg-white fw-bold">Payment History & Metrics</div>
-      <div class="card-body">
-        <button class="btn btn-primary btn-sm mb-3" onclick="loadMetrics()">Refresh Metrics</button>
-        <div class="row text-center mb-3">
-          <div class="col">
-            <div class="p-3 border bg-white rounded">
-              <span class="text-muted d-block small">Total Invoices</span>
-              <strong id="totalInvoices" class="h5">-</strong>
-            </div>
+      <!-- Main Content Area -->
+      <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
+        
+        <!-- Top Tab Bar -->
+        <div class="d-flex align-items-center border-bottom pb-2 mb-3 overflow-auto">
+          <span class="text-muted small me-3">Tabs:</span>
+          <div class="btn-group" role="group">
+            <button type="button" class="btn btn-outline-secondary btn-sm active" onclick="switchModel('client')">Client ✕</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="switchModel('invoice')">Invoice ✕</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="switchModel('organization')">Organization ✕</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="switchModel('payment')">Payment ✕</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="switchModel('webhooklog')">WebhookLog ✕</button>
           </div>
-          <div class="col">
-            <div class="p-3 border bg-white rounded">
-              <span class="text-muted d-block small">Paid</span>
-              <strong id="paidInvoices" class="h5 text-success">-</strong>
-            </div>
+        </div>
+
+        <!-- Action Bar -->
+        <div class="card shadow-sm mb-3">
+          <div class="card-body d-flex justify-content-between align-items-center py-2">
+            <span class="fw-bold text-uppercase small text-muted" id="currentModelTitle">Model: Client</span>
+            <button class="btn btn-dark btn-sm" onclick="loadCurrentModelData()">🔄 Refresh Data</button>
           </div>
-          <div class="col">
-            <div class="p-3 border bg-white rounded">
-              <span class="text-muted d-block small">Outstanding</span>
-              <strong id="outstanding" class="h5 text-danger">-</strong>
+        </div>
+
+        <!-- Data Table Card -->
+        <div class="card shadow-sm">
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-bordered table-striped mb-0 align-middle">
+                <thead class="table-light" id="table-head">
+                  <tr><th>id</th><th>name</th><th>email</th></tr>
+                </thead>
+                <tbody id="table-body">
+                  <tr><td colspan="5" class="text-center py-4">Loading records...</td></tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
-      </div>
+
+      </main>
     </div>
   </div>
 
-  <!-- Clean, isolated script block -->
   <script>
+    let activeModel = 'client';
+
     window.addEventListener('DOMContentLoaded', () => {
-      checkHealth();
-      loadClients();
-      loadMetrics();
+      loadCurrentModelData();
     });
 
-    function loadClients() {
-      fetch('/api/clients')
+    function switchModel(modelName, element) {
+      activeModel = modelName;
+      document.getElementById('currentModelTitle').textContent = 'Model: ' + modelName.toUpperCase();
+      
+      if (element) {
+        document.querySelectorAll('.model-link').forEach(el => el.classList.remove('active'));
+        element.classList.add('active');
+      }
+
+      loadCurrentModelData();
+    }
+
+    function loadCurrentModelData() {
+      const tbody = document.getElementById('table-body');
+      const thead = document.getElementById('table-head');
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4">Loading data from database...</td></tr>';
+
+      let endpoint = '/api/clients';
+      if (activeModel === 'invoice') endpoint = '/api/invoices';
+      if (activeModel === 'organization') endpoint = '/api/organizations';
+      if (activeModel === 'payment') endpoint = '/api/payments';
+      if (activeModel === 'webhooklog') endpoint = '/api/webhooklogs';
+
+      fetch(endpoint)
         .then(res => res.json())
         .then(data => {
-          const tbody = document.getElementById('table-body');
           tbody.innerHTML = '';
-          const clientList = Array.isArray(data) ? data : (data.clients || []);
-          
-          if (clientList.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="3" class="text-center py-3">No clients found</td></tr>';
+          const records = Array.isArray(data) ? data : (data.clients || data.invoices || data.payments || []);
+
+          if (records.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-3 text-muted">No records found in this table</td></tr>';
             return;
           }
 
-          clientList.forEach(client => {
-            tbody.innerHTML += `
-              <tr>
-                <td>${client.id}</td>
-                <td>${client.name}</td>
-                <td>${client.email}</td>
-              </tr>
-            `;
-          });
+          if (activeModel === 'client') {
+            thead.innerHTML = `<tr><th>id</th><th>name</th><th>email</th></tr>`;
+            records.forEach(c => {
+              tbody.innerHTML += `<tr><td>${c.id}</td><td>${c.name}</td><td>${c.email}</td></tr>`;
+            });
+          } else if (activeModel === 'invoice') {
+            thead.innerHTML = `<tr><th>id</th><th>invoiceNumber</th><th>amount</th><th>status</th><th>clientId</th></tr>`;
+            records.forEach(i => {
+              tbody.innerHTML += `<tr><td>${i.id}</td><td>${i.invoiceNumber}</td><td>${i.amount}</td><td>${i.status}</td><td>${i.clientId}</td></tr>`;
+            });
+          } else if (activeModel === 'organization') {
+            thead.innerHTML = `<tr><th>id</th><th>name</th><th>currency</th></tr>`;
+            records.forEach(o => {
+              tbody.innerHTML += `<tr><td>${o.id}</td><td>${o.name}</td><td>${o.currency || 'USD'}</td></tr>`;
+            });
+          } else if (activeModel === 'payment') {
+            thead.innerHTML = `<tr><th>id</th><th>amount</th><th>status</th><th>invoiceId</th></tr>`;
+            records.forEach(p => {
+              tbody.innerHTML += `<tr><td>${p.id}</td><td>${p.amount}</td><td>${p.status}</td><td>${p.invoiceId || '-'}</td></tr>`;
+            });
+          } else if (activeModel === 'webhooklog') {
+            thead.innerHTML = `<tr><th>id</th><th>event</th><th>payload</th><th>createdAt</th></tr>`;
+            records.forEach(w => {
+              tbody.innerHTML += `<tr><td>${w.id}</td><td>${w.event || 'Webhook'}</td><td><small>${JSON.stringify(w.payload || {})}</small></td><td>${w.createdAt || '-'}</td></tr>`;
+            });
+          }
         })
         .catch(err => {
-          console.error('Error loading clients:', err);
-          document.getElementById('table-body').innerHTML = '<tr><td colspan="3" class="text-center text-danger py-3">Error loading client data</td></tr>';
+          tbody.innerHTML = `<tr><td colspan="5" class="text-danger text-center py-3">Error loading data: ${err.message}</td></tr>`;
         });
-    }
-
-    async function checkHealth() {
-      const alertBox = document.getElementById('healthStatus');
-      try {
-        const res = await fetch('/api/health');
-        const data = await res.json();
-        if (res.ok) {
-          alertBox.className = 'alert alert-success';
-          alertBox.textContent = '✅ PayShield server is running and database is connected.';
-        } else {
-          throw new Error(data.error || 'Server error');
-        }
-      } catch (err) {
-        alertBox.className = 'alert alert-danger';
-        alertBox.textContent = '❌ Connection error: ' + err.message;
-      }
-    }
-
-    async function loadMetrics() {
-      try {
-        const res = await fetch('/api/metrics');
-        const data = await res.json();
-        if (res.ok && data.metrics) {
-          document.getElementById('totalInvoices').textContent = data.metrics.totalInvoices;
-          document.getElementById('paidInvoices').textContent = data.metrics.paidInvoices;
-          document.getElementById('outstanding').textContent = `${data.metrics.outstandingAmount} ${data.organization.currency}`;
-        }
-      } catch (err) {
-        console.error('Metrics error:', err);
-      }
     }
   </script>
 </body>
