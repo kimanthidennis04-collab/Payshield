@@ -3,22 +3,49 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PayShield - Prisma Studio Dashboard</title>
+  <title>PayShield - Enterprise Dashboard</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
     body { background-color: #f4f6f9; font-family: system-ui, -apple-system, sans-serif; }
+    .auth-container { max-width: 400px; margin: 80px auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
     .sidebar { background: #fff; border-right: 1px solid #dee2e6; min-height: 100vh; }
     .model-link { cursor: pointer; padding: 10px 15px; display: block; color: #333; text-decoration: none; border-radius: 4px; margin-bottom: 4px; }
     .model-link:hover, .model-link.active { background-color: #0d6efd; color: #fff; }
+    .app-view { display: none; }
   </style>
 </head>
 <body>
 
-  <div class="container-fluid">
+  <!-- AUTH SECTION (Login / Sign Up) -->
+  <div id="authView" class="auth-container">
+    <h2 class="text-center fw-bold mb-4">PayShield Portal</h2>
+    <div id="authAlert" class="alert alert-danger d-none"></div>
+    <form id="authForm">
+      <div class="mb-3" id="nameFieldGroup">
+        <label class="form-label">Full Name</label>
+        <input type="text" class="form-control" id="authName" placeholder="Dennis Kimanthi">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Email Address</label>
+        <input type="email" class="form-control" id="authEmail" required placeholder="name@example.com">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Password</label>
+        <input type="password" class="form-control" id="authPassword" required placeholder="••••••••">
+      </div>
+      <button type="submit" class="btn btn-primary w-100 mb-3" id="authSubmitBtn">Sign Up</button>
+      <div class="text-center">
+        <a href="#" class="text-decoration-none small" id="toggleAuthMode">Already have an account? Log in</a>
+      </div>
+    </form>
+  </div>
+
+  <!-- MAIN DASHBOARD VIEW (Prisma Studio Style) -->
+  <div id="dashboardView" class="container-fluid app-view">
     <div class="row">
       <!-- Sidebar Models List -->
       <nav class="col-md-3 col-lg-2 d-md-block sidebar p-3 collapse">
-        <h5 class="fw-bold text-secondary mb-3">Search models</h5>
+        <h5 class="fw-bold text-secondary mb-3">Database Models</h5>
         <div class="list-group list-group-flush">
           <a class="model-link active" onclick="switchModel('client', this)">Client</a>
           <a class="model-link" onclick="switchModel('invoice', this)">Invoice</a>
@@ -26,14 +53,14 @@
           <a class="model-link" onclick="switchModel('payment', this)">Payment</a>
           <a class="model-link" onclick="switchModel('webhooklog', this)">WebhookLog</a>
         </div>
+        <button class="btn btn-outline-danger btn-sm w-100 mt-4" onclick="logout()">Log Out</button>
       </nav>
 
       <!-- Main Content Area -->
       <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
-        
         <!-- Top Tab Bar -->
         <div class="d-flex align-items-center border-bottom pb-2 mb-3 overflow-auto">
-          <span class="text-muted small me-3">Tabs:</span>
+          <span class="text-muted small me-3">Models:</span>
           <div class="btn-group" role="group">
             <button type="button" class="btn btn-outline-secondary btn-sm active" onclick="switchModel('client')">Client ✕</button>
             <button type="button" class="btn btn-outline-secondary btn-sm" onclick="switchModel('invoice')">Invoice ✕</button>
@@ -45,9 +72,12 @@
 
         <!-- Action Bar -->
         <div class="card shadow-sm mb-3">
-          <div class="card-body d-flex justify-content-between align-items-center py-2">
+          <div class="card-body d-flex justify-content-between align-items-center py-2 flex-wrap gap-2">
             <span class="fw-bold text-uppercase small text-muted" id="currentModelTitle">Model: Client</span>
-            <button class="btn btn-dark btn-sm" onclick="loadCurrentModelData()">🔄 Refresh Data</button>
+            <div>
+              <button class="btn btn-success btn-sm me-2" data-bs-toggle="modal" data-bs-target="#addRecordModal">➕ Add Record</button>
+              <button class="btn btn-dark btn-sm" onclick="loadCurrentModelData()">🔄 Refresh</button>
+            </div>
           </div>
         </div>
 
@@ -66,34 +96,151 @@
             </div>
           </div>
         </div>
-
       </main>
     </div>
   </div>
 
+  <!-- Add Record Modal -->
+  <div class="modal fade" id="addRecordModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modalTitle">Add New Client</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="addRecordForm">
+            <div id="formFields">
+              <div class="mb-3"><label class="form-label">Name</label><input type="text" class="form-control" name="name" required></div>
+              <div class="mb-3"><label class="form-label">Email</label><input type="email" class="form-control" name="email" required></div>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Save to Database</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
+    let isLoginMode = false;
     let activeModel = 'client';
 
-    window.addEventListener('DOMContentLoaded', () => {
-      loadCurrentModelData();
+    document.getElementById('toggleAuthMode').addEventListener('click', (e) => {
+      e.preventDefault();
+      isLoginMode = !isLoginMode;
+      document.getElementById('authSubmitBtn').textContent = isLoginMode ? 'Log In' : 'Sign Up';
+      document.getElementById('nameFieldGroup').style.display = isLoginMode ? 'none' : 'block';
+      document.getElementById('toggleAuthMode').textContent = isLoginMode ? "Don't have an account? Sign up" : 'Already have an account? Log in';
     });
+
+    document.getElementById('authForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('authEmail').value;
+      const password = document.getElementById('authPassword').value;
+      const name = document.getElementById('authName').value;
+
+      const endpoint = isLoginMode ? '/api/clients' : '/api/auth/signup';
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, name })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          document.getElementById('authView').style.display = 'none';
+          document.getElementById('dashboardView').style.display = 'block';
+          loadCurrentModelData();
+        } else {
+          showAuthError(data.error || 'Authentication failed');
+        }
+      } catch (err) {
+        showAuthError(err.message);
+      }
+    });
+
+    function showAuthError(msg) {
+      const alertBox = document.getElementById('authAlert');
+      alertBox.textContent = msg;
+      alertBox.classList.remove('d-none');
+    }
+
+    function logout() {
+      document.getElementById('dashboardView').style.display = 'none';
+      document.getElementById('authView').style.display = 'block';
+    }
 
     function switchModel(modelName, element) {
       activeModel = modelName;
       document.getElementById('currentModelTitle').textContent = 'Model: ' + modelName.toUpperCase();
+      document.getElementById('modalTitle').textContent = 'Add New ' + modelName.charAt(0).toUpperCase() + modelName.slice(1);
       
       if (element) {
         document.querySelectorAll('.model-link').forEach(el => el.classList.remove('active'));
         element.classList.add('active');
       }
 
+      updateFormFields();
       loadCurrentModelData();
     }
+
+    function updateFormFields() {
+      const container = document.getElementById('formFields');
+      if (activeModel === 'client') {
+        container.innerHTML = `
+          <div class="mb-3"><label class="form-label">Name</label><input type="text" class="form-control" name="name" required></div>
+          <div class="mb-3"><label class="form-label">Email</label><input type="email" class="form-control" name="email" required></div>`;
+      } else if (activeModel === 'invoice') {
+        container.innerHTML = `
+          <div class="mb-3"><label class="form-label">Invoice Number</label><input type="text" class="form-control" name="invoiceNumber" required></div>
+          <div class="mb-3"><label class="form-label">Amount</label><input type="number" class="form-control" name="amount" required></div>
+          <div class="mb-3"><label class="form-label">Client ID</label><input type="number" class="form-control" name="clientId" required></div>`;
+      } else if (activeModel === 'organization') {
+        container.innerHTML = `
+          <div class="mb-3"><label class="form-label">Name</label><input type="text" class="form-control" name="name" required></div>
+          <div class="mb-3"><label class="form-label">Currency</label><input type="text" class="form-control" name="currency" value="USD" required></div>`;
+      } else if (activeModel === 'payment') {
+        container.innerHTML = `
+          <div class="mb-3"><label class="form-label">Amount</label><input type="number" class="form-control" name="amount" required></div>
+          <div class="mb-3"><label class="form-label">Status</label><input type="text" class="form-control" name="status" value="SUCCESS" required></div>
+          <div class="mb-3"><label class="form-label">Invoice ID</label><input type="number" class="form-control" name="invoiceId" required></div>`;
+      } else {
+        container.innerHTML = `<p class="text-muted">Webhook logs are managed automatically.</p>`;
+      }
+    }
+
+    document.getElementById('addRecordForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const formData = new FormData(this);
+      const data = Object.fromEntries(formData.entries());
+
+      let endpoint = '/api/clients';
+      if (activeModel === 'invoice') endpoint = '/api/invoices';
+      if (activeModel === 'organization') endpoint = '/api/organizations';
+      if (activeModel === 'payment') endpoint = '/api/payments';
+
+      fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      })
+      .then(res => res.json())
+      .then(response => {
+        alert('Record successfully saved to database!');
+        var modal = bootstrap.Modal.getInstance(document.getElementById('addRecordModal'));
+        modal.hide();
+        loadCurrentModelData();
+      })
+      .catch(err => {
+        alert('Error saving record: ' + err.message);
+      });
+    });
 
     function loadCurrentModelData() {
       const tbody = document.getElementById('table-body');
       const thead = document.getElementById('table-head');
-      tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4">Loading data from database...</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4">Loading...</td></tr>';
 
       let endpoint = '/api/clients';
       if (activeModel === 'invoice') endpoint = '/api/invoices';
@@ -108,39 +255,29 @@
           const records = Array.isArray(data) ? data : (data.clients || data.invoices || data.payments || []);
 
           if (records.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-3 text-muted">No records found in this table</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-3 text-muted">No records found</td></tr>';
             return;
           }
 
           if (activeModel === 'client') {
             thead.innerHTML = `<tr><th>id</th><th>name</th><th>email</th></tr>`;
-            records.forEach(c => {
-              tbody.innerHTML += `<tr><td>${c.id}</td><td>${c.name}</td><td>${c.email}</td></tr>`;
-            });
+            records.forEach(c => { tbody.innerHTML += `<tr><td>${c.id}</td><td>${c.name}</td><td>${c.email}</td></tr>`; });
           } else if (activeModel === 'invoice') {
             thead.innerHTML = `<tr><th>id</th><th>invoiceNumber</th><th>amount</th><th>status</th><th>clientId</th></tr>`;
-            records.forEach(i => {
-              tbody.innerHTML += `<tr><td>${i.id}</td><td>${i.invoiceNumber}</td><td>${i.amount}</td><td>${i.status}</td><td>${i.clientId}</td></tr>`;
-            });
+            records.forEach(i => { tbody.innerHTML += `<tr><td>${i.id}</td><td>${i.invoiceNumber}</td><td>${i.amount}</td><td>${i.status}</td><td>${i.clientId}</td></tr>`; });
           } else if (activeModel === 'organization') {
             thead.innerHTML = `<tr><th>id</th><th>name</th><th>currency</th></tr>`;
-            records.forEach(o => {
-              tbody.innerHTML += `<tr><td>${o.id}</td><td>${o.name}</td><td>${o.currency || 'USD'}</td></tr>`;
-            });
+            records.forEach(o => { tbody.innerHTML += `<tr><td>${o.id}</td><td>${o.name}</td><td>${o.currency || 'USD'}</td></tr>`; });
           } else if (activeModel === 'payment') {
             thead.innerHTML = `<tr><th>id</th><th>amount</th><th>status</th><th>invoiceId</th></tr>`;
-            records.forEach(p => {
-              tbody.innerHTML += `<tr><td>${p.id}</td><td>${p.amount}</td><td>${p.status}</td><td>${p.invoiceId || '-'}</td></tr>`;
-            });
+            records.forEach(p => { tbody.innerHTML += `<tr><td>${p.id}</td><td>${p.amount}</td><td>${p.status}</td><td>${p.invoiceId || '-'}</td></tr>`; });
           } else if (activeModel === 'webhooklog') {
             thead.innerHTML = `<tr><th>id</th><th>event</th><th>payload</th><th>createdAt</th></tr>`;
-            records.forEach(w => {
-              tbody.innerHTML += `<tr><td>${w.id}</td><td>${w.event || 'Webhook'}</td><td><small>${JSON.stringify(w.payload || {})}</small></td><td>${w.createdAt || '-'}</td></tr>`;
-            });
+            records.forEach(w => { tbody.innerHTML += `<tr><td>${w.id}</td><td>${w.event || 'Webhook'}</td><td><small>${JSON.stringify(w.payload || {})}</small></td><td>${w.createdAt || '-'}</td></tr>`; });
           }
         })
         .catch(err => {
-          tbody.innerHTML = `<tr><td colspan="5" class="text-danger text-center py-3">Error loading data: ${err.message}</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="5" class="text-danger text-center py-3">Error: ${err.message}</td></tr>`;
         });
     }
   </script>
