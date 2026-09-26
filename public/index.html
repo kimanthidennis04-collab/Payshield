@@ -359,29 +359,69 @@ Payment history will appear here.
   </div>
 
 <script>
-// Automatically load clients into the table when the page opens
-window.addEventListener('DOMContentLoaded', () => {
-  fetch('/api/clients')
-    .then(response => response.json())
-    .then(data => {
-      const tbody = document.getElementById('table-body');
-      tbody.innerHTML = ''; // clear out any placeholder text
+  // Automatically load all dashboard data when the page opens
+  window.addEventListener('DOMContentLoaded', () => {
+    loadClients();
+    loadPayments();
+  });
 
-      // Loop through your clients and build table rows
-      data.forEach(client => {
-        const row = `
-          <tr style="border-bottom: 1px solid #eee;">
-            <td style="padding: 10px;">${client.id}</td>
-            <td style="padding: 10px;">${client.name}</td>
-            <td style="padding: 10px;">${client.email}</td>
-          </tr>
-        `;
-        tbody.innerHTML += row;
-      });
-    })
-    .catch(error => console.error('Error loading clients:', error));
-});
+  function loadClients() {
+    fetch('/api/clients')
+      .then(response => response.json())
+      .then(data => {
+        const tbody = document.getElementById('table-body');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        
+        const clientList = Array.isArray(data) ? data : (data.clients || []);
+        if (clientList.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="3" style="padding: 10px;">No clients found</td></tr>';
+          return;
+        }
 
+        clientList.forEach(client => {
+          const row = `
+            <tr style="border-bottom: 1px solid #eee;">
+              <td style="padding: 10px;">${client.id}</td>
+              <td style="padding: 10px;">${client.name}</td>
+              <td style="padding: 10px;">${client.email}</td>
+            </tr>
+          `;
+          tbody.innerHTML += row;
+        });
+      })
+      .catch(error => console.error('Error loading clients:', error));
+  }
+
+  function loadPayments() {
+    fetch('/api/metrics')
+      .then(response => response.json())
+      .then(data => {
+        const tbody = document.getElementById('payment-table-body');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        
+        const paymentsList = data.payments || [];
+        if (paymentsList.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="4" style="padding: 10px; color: #888;">No recent payments recorded</td></tr>';
+          return;
+        }
+
+        paymentsList.forEach(payment => {
+          const row = `
+            <tr style="border-bottom: 1px solid #eee;">
+              <td style="padding: 8px;">${payment.id}</td>
+              <td style="padding: 8px;">${payment.invoiceId || '-'}</td>
+              <td style="padding: 8px;">${payment.amount}</td>
+              <td style="padding: 8px;"><span style="color: green; font-weight: bold;">${payment.status}</span></td>
+            </tr>
+          `;
+          tbody.innerHTML += row;
+        });
+      })
+      .catch(error => console.error('Error loading payments:', error));
+  }
+</script>
 /*
 |--------------------------------------------------------------------------
 | Health
