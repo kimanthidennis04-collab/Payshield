@@ -244,6 +244,55 @@ app.get('/api/webhooklogs', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// --- User Authentication Route ---
+app.post('/api/auth/signup', async (req, res) => {
+  try {
+    const { email, password, name } = req.body;
+    const existingUser = await prisma.client.findFirst({ where: { email } });
+    if (existingUser) return res.status(400).json({ error: 'User already exists' });
+    
+    const client = await prisma.client.create({ data: { name, email } });
+    res.json({ success: true, message: 'Account created successfully', client });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// --- Full Model POST Routes ---
+app.post('/api/invoices', async (req, res) => {
+  try {
+    const { invoiceNumber, amount, clientId } = req.body;
+    const invoice = await prisma.invoice.create({
+      data: { invoiceNumber, amount: parseFloat(amount), clientId: parseInt(clientId) }
+    });
+    res.json({ success: true, invoice });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/organizations', async (req, res) => {
+  try {
+    const { name, currency } = req.body;
+    const org = await prisma.organization.create({ data: { name, currency } });
+    res.json({ success: true, org });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/payments', async (req, res) => {
+  try {
+    const { amount, status, invoiceId } = req.body;
+    const payment = await prisma.payment.create({
+      data: { amount: parseFloat(amount), status, invoiceId: parseInt(invoiceId) }
+    });
+    res.json({ success: true, payment });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 initializeApp().then(() => {
   app.listen(PORT, () => {
     console.log(`PayShield Enterprise running on http://localhost:${PORT}`);
