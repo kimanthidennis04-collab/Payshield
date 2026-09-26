@@ -359,10 +359,9 @@ Payment history will appear here.
   </div>
 
 <script>
-  // Automatically load all dashboard data when the page opens
+  // Automatically load data when page opens
   window.addEventListener('DOMContentLoaded', () => {
     loadClients();
-    loadPayments();
   });
 
   function loadClients() {
@@ -393,33 +392,36 @@ Payment history will appear here.
       .catch(error => console.error('Error loading clients:', error));
   }
 
-  function loadPayments() {
-    fetch('/api/metrics')
-      .then(response => response.json())
+  function checkInvoice() {
+    const invNum = document.getElementById('invoiceNumber').value.trim();
+    const output = document.getElementById('invoiceOutput');
+    if (!invNum) {
+      output.textContent = 'Please enter an invoice number.';
+      return;
+    }
+    output.textContent = 'Checking invoice...';
+    fetch('/api/invoice/' + invNum)
+      .then(res => res.json())
       .then(data => {
-        const tbody = document.getElementById('payment-table-body');
-        if (!tbody) return;
-        tbody.innerHTML = '';
-        
-        const paymentsList = data.payments || [];
-        if (paymentsList.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="4" style="padding: 10px; color: #888;">No recent payments recorded</td></tr>';
-          return;
-        }
-
-        paymentsList.forEach(payment => {
-          const row = `
-            <tr style="border-bottom: 1px solid #eee;">
-              <td style="padding: 8px;">${payment.id}</td>
-              <td style="padding: 8px;">${payment.invoiceId || '-'}</td>
-              <td style="padding: 8px;">${payment.amount}</td>
-              <td style="padding: 8px;"><span style="color: green; font-weight: bold;">${payment.status}</span></td>
-            </tr>
-          `;
-          tbody.innerHTML += row;
-        });
+        output.textContent = JSON.stringify(data, null, 2);
       })
-      .catch(error => console.error('Error loading payments:', error));
+      .catch(err => {
+        output.textContent = 'Error checking invoice: ' + err.message;
+      });
+  }
+
+  function loadMetrics() {
+    fetch('/api/metrics')
+      .then(res => res.json())
+      .then(data => {
+        if (data.metrics) {
+          document.getElementById('totalInvoices').textContent = data.metrics.totalInvoices;
+          document.getElementById('paidInvoices').textContent = data.metrics.paidInvoices;
+          document.getElementById('partialInvoices').textContent = data.metrics.partiallyPaidInvoices;
+          document.getElementById('outstanding').textContent = data.metrics.outstandingAmount;
+        }
+      })
+      .catch(err => console.error(err));
   }
 </script>
 /*
