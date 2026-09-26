@@ -198,7 +198,16 @@ app.post('/api/webhook/payment-received', async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
-
+// 4. Clients Route
+app.get('/api/clients', async (req, res) => {
+  try {
+    const clients = await prisma.client.findMany();
+    res.json(clients);
+  } catch (error) {
+    console.error('Error fetching clients:', error);
+    res.status(500).json({ error: 'Failed to fetch clients' });
+  }
+});
 initializeApp().then(() => {
   app.listen(PORT, () => {
     console.log(`PayShield Enterprise running on http://localhost:${PORT}`);
