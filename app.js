@@ -8,17 +8,20 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
-// Helper: Ensure Organization and default client exist safely
+// Bulletproof helper: Dynamically finds or creates organization and client safely
 async function getOrCreateDefaultClient() {
-  const org = await prisma.organization.upsert({
-    where: { id: 1 },
-    update: {},
-    create: { 
-      name: 'PayShield Enterprise', 
-      currency: 'USD' 
-    }
-  });
+  // 1. Find the first organization, or create one if none exist
+  let org = await prisma.organization.findFirst();
+  if (!org) {
+    org = await prisma.organization.create({
+      data: { 
+        name: 'PayShield Enterprise', 
+        currency: 'USD' 
+      }
+    });
+  }
 
+  // 2. Find or create a default client linked to this organization
   let client = await prisma.client.findFirst({ 
     where: { organizationId: org.id } 
   });
@@ -59,7 +62,7 @@ app.get('/api/health', (req, res) => {
 // 3. Metrics Route
 app.get('/api/metrics', async (req, res) => {
   try {
-    await getOrCreateDefaultClient();
+    const defaultClient = await getOrCreateDefaultClient();
     const invoices = await prisma.invoice.findMany({ include: { payments: true } });
     const totalInvoices = invoices.length;
     const paidInvoices = invoices.filter(i => i.status === 'PAID').length;
@@ -73,7 +76,7 @@ app.get('/api/metrics', async (req, res) => {
       }
     });
 
-    const org = await prisma.organization.findUnique({ where: { id: 1 } });
+    const org = await prisma.organization.findUnique({ where: { id: defaultClient.organizationId } });
 
     res.json({
       success: true,
@@ -146,12 +149,13 @@ app.post('/api/webhook/payment-received', async (req, res) => {
   try {
     const { invoiceNumber, amountPaid } = req.body;
     let invoice = await prisma.invoice.findUnique({ 
-      where: { invoiceNumber },
+      where: { invoiceNumber: invoiceNumber || 'INV-1001' },
       include: { payments: true }
     });
 
+    const defaultClient = await getOrCreateDefaultClient();
+
     if (!invoice) {
-      const defaultClient = await getOrCreateDefaultClient();
       invoice = await prisma.invoice.create({
         data: {
           invoiceNumber: invoiceNumber || 'INV-1001',
@@ -167,13 +171,15 @@ app.post('/api/webhook/payment-received', async (req, res) => {
     const payment = await prisma.payment.create({
       data: {
         invoiceId: invoice.id,
-        amount: amountPaid || invoice.amount,
+        amount: amountPaid ? parseFloat(amountPaid) : invoice.amount,
         status: 'SUCCESS'
       }
     });
 
-    const allPayments = [...invoice.payments, payment];
-    const totalPaid = allPayments.reduce((acc, p) => acc + p.amount, 0);
+    // Re-fetch all payments for accurate calculation
+    const updatedPayments = await prisma.payment.findMany({ where: { invoiceId: invoice.id } });
+    const totalPaid = updatedPayments.reduce((acc, p) => acc + p.amount, 0);
+    
     let newStatus = 'PENDING';
     if (totalPaid >= invoice.amount) {
       newStatus = 'PAID';
@@ -182,7 +188,7 @@ app.post('/api/webhook/payment-received', async (req, res) => {
     }
 
     const updatedInvoice = await prisma.invoice.update({
-      where: { invoiceNumber },
+      where: { id: invoice.id },
       data: { status: newStatus },
       include: { client: true, payments: true }
     });
