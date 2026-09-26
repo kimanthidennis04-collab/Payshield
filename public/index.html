@@ -1,939 +1,142 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
-    <meta charset="UTF-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
-    <meta
-        name="description"
-        content="PayShield Engine Dashboard"
-    >
-
-    <link
-        rel="icon"
-        href="data:,"
-    >
-
-    <title>PayShield Engine Dashboard</title>
-
-
-    <style>
-
-        * {
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: Arial, sans-serif;
-            background: #f4f6f9;
-            margin: 0;
-            padding: 20px;
-            color: #333;
-        }
-
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-        }
-
-        .header {
-            background: white;
-            padding: 25px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-        }
-
-        h1 {
-            color: #1a73e8;
-            margin-top: 0;
-        }
-
-        .card {
-            background: white;
-            padding: 20px;
-            margin-bottom: 20px;
-            border-radius: 10px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-        }
-
-        .metrics {
-            display: grid;
-            grid-template-columns:
-                repeat(auto-fit, minmax(180px, 1fr));
-            gap: 15px;
-        }
-
-        .metric {
-            background: #f8f9fa;
-            padding: 18px;
-            border-radius: 8px;
-        }
-
-        .metric h3 {
-            margin-top: 0;
-            font-size: 14px;
-            color: #666;
-        }
-
-        .metric-value {
-            font-size: 25px;
-            font-weight: bold;
-            color: #1a73e8;
-        }
-
-        label {
-            display: block;
-            margin-top: 12px;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-
-        input {
-            width: 100%;
-            padding: 11px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            font-size: 15px;
-        }
-
-        button {
-            background: #1a73e8;
-            color: white;
-            border: none;
-            padding: 11px 18px;
-            font-size: 15px;
-            border-radius: 5px;
-            cursor: pointer;
-            margin-top: 15px;
-            margin-right: 8px;
-        }
-
-        button:hover {
-            background: #1557b0;
-        }
-
-        button.secondary {
-            background: #555;
-        }
-
-        pre {
-            background: #23241f;
-            color: #f8f8f2;
-            padding: 15px;
-            border-radius: 6px;
-            overflow-x: auto;
-            white-space: pre-wrap;
-            word-break: break-word;
-        }
-
-        .status {
-            padding: 10px;
-            border-radius: 5px;
-            margin-top: 10px;
-            background: #f1f3f4;
-        }
-
-    </style>
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PayShield Dashboard</title>
+  <!-- Use a clean professional styling framework via CDN -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
+<body class="bg-light">
 
+  <div class="container py-4">
+    <header class="pb-3 mb-4 border-bottom">
+      <h1 class="h3 fw-bold text-dark">PayShield Dashboard</h1>
+      <p class="text-muted m-0">Live Database Records Overview</p>
+    </header>
 
-<body>
+    <!-- Health Status Alert -->
+    <div id="healthStatus" class="alert alert-info" role="alert">
+      Checking server status...
+    </div>
 
-<div class="container">
-
-
-    <div class="header">
-
-        <h1>
-            🛡️ PayShield Engine
-        </h1>
-
-        <p>
-            Invoice and payment monitoring dashboard.
-        </p>
-
-        <div id="healthStatus"
-             class="status">
-            Checking server...
+    <!-- Clients Overview Table Card -->
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-white fw-bold">Clients Overview</div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-striped table-hover mb-0">
+            <thead class="table-dark">
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Email</th>
+              </tr>
+            </thead>
+            <tbody id="table-body">
+              <tr><td colspan="3" class="text-center py-3">Loading clients...</td></tr>
+            </tbody>
+          </table>
         </div>
-
+      </div>
     </div>
 
-
-    <!-- Metrics -->
-
-    <div class="card">
-
-        <h2>
-            Live Metrics
-        </h2>
-
-        <div class="metrics">
-
-            <div class="metric">
-                <h3>Total Invoices</h3>
-                <div
-                    id="totalInvoices"
-                    class="metric-value"
-                >
-                    -
-                </div>
+    <!-- Payment History Card -->
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-white fw-bold">Payment History & Metrics</div>
+      <div class="card-body">
+        <button class="btn btn-primary btn-sm mb-3" onclick="loadMetrics()">Refresh Metrics</button>
+        <div class="row text-center mb-3">
+          <div class="col">
+            <div class="p-3 border bg-white rounded">
+              <span class="text-muted d-block small">Total Invoices</span>
+              <strong id="totalInvoices" class="h5">-</strong>
             </div>
-
-            <div class="metric">
-                <h3>Paid Invoices</h3>
-                <div
-                    id="paidInvoices"
-                    class="metric-value"
-                >
-                    -
-                </div>
+          </div>
+          <div class="col">
+            <div class="p-3 border bg-white rounded">
+              <span class="text-muted d-block small">Paid</span>
+              <strong id="paidInvoices" class="h5 text-success">-</strong>
             </div>
-
-            <div class="metric">
-                <h3>Partially Paid</h3>
-                <div
-                    id="partialInvoices"
-                    class="metric-value"
-                >
-                    -
-                </div>
+          </div>
+          <div class="col">
+            <div class="p-3 border bg-white rounded">
+              <span class="text-muted d-block small">Outstanding</span>
+              <strong id="outstanding" class="h5 text-danger">-</strong>
             </div>
-
-            <div class="metric">
-                <h3>Outstanding</h3>
-                <div
-                    id="outstanding"
-                    class="metric-value"
-                >
-                    -
-                </div>
-            </div>
-
+          </div>
         </div>
-
-        <button onclick="loadMetrics()">
-            Refresh Metrics
-        </button>
-
+      </div>
     </div>
-
-
-    <!-- Invoice -->
-
-    <div class="card">
-
-        <h2>
-            Check Invoice
-        </h2>
-
-        <label for="invoiceNumber">
-            Invoice Number
-        </label>
-
-        <input
-            id="invoiceNumber"
-            type="text"
-            value="INV-1001"
-            placeholder="INV-1001"
-        >
-
-        <button onclick="loadInvoice()">
-            Check Invoice
-        </button>
-
-        <pre id="invoiceOutput">
-Enter an invoice number and click "Check Invoice".
-        </pre>
-
-    </div>
-
-
-    <!-- Webhook -->
-
-    <div class="card">
-
-        <h2>
-            🧪 Test Payment Webhook
-        </h2>
-
-        <p>
-            This is a development simulator.
-            It does not represent a real payment-provider webhook.
-        </p>
-
-
-        <label for="paymentInvoice">
-            Invoice Number
-        </label>
-
-        <input
-            id="paymentInvoice"
-            type="text"
-            value="INV-1001"
-        >
-
-
-        <label for="paymentAmount">
-            Payment Amount
-        </label>
-
-        <input
-            id="paymentAmount"
-            type="number"
-            min="0.01"
-            step="0.01"
-            value="1700"
-        >
-
-
-        <label for="paymentCurrency">
-            Currency
-        </label>
-
-        <input
-            id="paymentCurrency"
-            type="text"
-            value="USD"
-        >
-
-
-        <button onclick="simulateWebhook()">
-            Simulate Payment
-        </button>
-
-
-        <pre id="webhookOutput">
-Payment result will appear here.
-        </pre>
-
-    </div>
-
-
-    <!-- Payment History -->
-
-    <div class="card">
-
-        <h2>
-            Payment History
-        </h2>
-
-        <button
-            class="secondary"
-            onclick="loadPayments()"
-        >
-            Load Payments
-        </button>
-
-        <pre id="paymentsOutput">
-Payment history will appear here.
-        </pre>
-
-    </div>
-
-
-</div>
-<!-- Clients Table Section -->
-  <div class="card" style="margin-top: 20px;">
-    <h2>Clients Overview</h2>
-    <table id="client-table" style="width:100%; border-collapse: collapse; margin-top: 10px;">
-      <thead>
-        <tr style="border-bottom: 2px solid #ddd; text-align: left;">
-          <th style="padding: 10px;">ID</th>
-          <th style="padding: 10px;">Name</th>
-          <th style="padding: 10px;">Email</th>
-        </tr>
-      </thead>
-      <tbody id="table-body">
-        <!-- Data will load here dynamically -->
-      </tbody>
-    </table>
   </div>
 
-<!-- Clients Overview Table -->
-    <div class="card">
-      <h2>Clients Overview</h2>
-      <table style="width:100%; border-collapse: collapse;">
-        <thead>
-          <tr style="border-bottom: 2px solid #ddd; text-align: left;">
-            <th style="padding: 10px;">ID</th>
-            <th style="padding: 10px;">Name</th>
-            <th style="padding: 10px;">Email</th>
-          </tr>
-        </thead>
-        <tbody id="table-body">
-          <!-- Data will load here dynamically -->
-        </tbody>
-      </table>
-    </div>
-
-  </div> <!-- End of main container -->
-
-  <!-- THERE SHOULD ONLY BE ONE SCRIPT TAG HERE AT THE VERY BOTTOM -->
+  <!-- Clean, isolated script block -->
   <script>
-    // Automatically load clients on page open
     window.addEventListener('DOMContentLoaded', () => {
+      checkHealth();
       loadClients();
+      loadMetrics();
     });
 
     function loadClients() {
       fetch('/api/clients')
-        .then(response => response.json())
+        .then(res => res.json())
         .then(data => {
           const tbody = document.getElementById('table-body');
-          if (!tbody) return;
           tbody.innerHTML = '';
-          
           const clientList = Array.isArray(data) ? data : (data.clients || []);
+          
           if (clientList.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="3" style="padding: 10px;">No clients found</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="3" class="text-center py-3">No clients found</td></tr>';
             return;
           }
 
           clientList.forEach(client => {
-            const row = `
-              <tr style="border-bottom: 1px solid #eee;">
-                <td style="padding: 10px;">${client.id}</td>
-                <td style="padding: 10px;">${client.name}</td>
-                <td style="padding: 10px;">${client.email}</td>
+            tbody.innerHTML += `
+              <tr>
+                <td>${client.id}</td>
+                <td>${client.name}</td>
+                <td>${client.email}</td>
               </tr>
             `;
-            tbody.innerHTML += row;
           });
         })
-        .catch(error => console.error('Error loading clients:', error));
+        .catch(err => {
+          console.error('Error loading clients:', err);
+          document.getElementById('table-body').innerHTML = '<tr><td colspan="3" class="text-center text-danger py-3">Error loading client data</td></tr>';
+        });
     }
 
     async function checkHealth() {
-      const output = document.getElementById('healthStatus');
+      const alertBox = document.getElementById('healthStatus');
       try {
-        const response = await fetch('/api/health');
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Server error');
-        output.textContent = '✅ PayShield server is running and database is connected.';
-      } catch (error) {
-        output.textContent = '❌ Server error: ' + error.message;
+        const res = await fetch('/api/health');
+        const data = await res.json();
+        if (res.ok) {
+          alertBox.className = 'alert alert-success';
+          alertBox.textContent = '✅ PayShield server is running and database is connected.';
+        } else {
+          throw new Error(data.error || 'Server error');
+        }
+      } catch (err) {
+        alertBox.className = 'alert alert-danger';
+        alertBox.textContent = '❌ Connection error: ' + err.message;
       }
     }
 
     async function loadMetrics() {
       try {
-        const response = await fetch('/api/metrics');
-        const data = await response.json();
-        if (!response.ok) return;
-        const metrics = data.metrics;
-        document.getElementById('totalInvoices').textContent = metrics.totalInvoices;
-        document.getElementById('paidInvoices').textContent = metrics.paidInvoices;
-        document.getElementById('partialInvoices').textContent = metrics.partiallyPaidInvoices;
-        document.getElementById('outstanding').textContent = `${metrics.outstandingAmount} ${data.organization.currency}`;
-      } catch (error) {
-        console.error('Metrics error:', error);
+        const res = await fetch('/api/metrics');
+        const data = await res.json();
+        if (res.ok && data.metrics) {
+          document.getElementById('totalInvoices').textContent = data.metrics.totalInvoices;
+          document.getElementById('paidInvoices').textContent = data.metrics.paidInvoices;
+          document.getElementById('outstanding').textContent = `${data.metrics.outstandingAmount} ${data.organization.currency}`;
+        }
+      } catch (err) {
+        console.error('Metrics error:', err);
       }
-    }
-
-    async function checkInvoice() {
-      const invoiceNumber = document.getElementById('invoiceNumber').value.trim();
-      const output = document.getElementById('invoiceOutput');
-      if (!invoiceNumber) {
-        output.textContent = 'Please enter an invoice number.';
-        return;
-      }
-      try {
-        const response = await fetch('/api/invoice/' + encodeURIComponent(invoiceNumber));
-        const data = await response.json();
-        output.textContent = JSON.stringify(data, null, 2);
-      } catch (error) {
-        output.textContent = 'Error: ' + error.message;
-      }
-    }
-
-    async function simulatePayment() {
-      const invoiceNumber = document.getElementById('simInvoiceNumber').value.trim();
-      const amount = document.getElementById('simAmount').value.trim();
-      const currency = document.getElementById('simCurrency').value.trim();
-      const output = document.getElementById('simOutput');
-
-      if (!invoiceNumber || !amount || !currency) {
-        output.textContent = 'Please fill in all payment fields.';
-        return;
-      }
-
-      try {
-        const response = await fetch('/api/webhook/simulate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ invoiceNumber, amount: Number(amount), currency })
-        });
-        const data = await response.json();
-        output.textContent = JSON.stringify(data, null, 2);
-      } catch (error) {
-        output.textContent = 'Error: ' + error.message;
-      }
-    }
-
-    function loadPayments() {
-      fetch('/api/metrics')
-        .then(response => response.json())
-        .then(data => {
-          const output = document.getElementById('paymentsOutput');
-          if (output) {
-            output.textContent = JSON.stringify(data.payments || [], null, 2);
-          }
-        })
-        .catch(error => console.error('Error loading payments:', error));
     }
   </script>
 </body>
-</html>
-/*
-|--------------------------------------------------------------------------
-| Health
-|--------------------------------------------------------------------------
-*/
-
-async function checkHealth() {
-
-    const output =
-        document.getElementById(
-            'healthStatus'
-        );
-
-    try {
-
-        const response =
-            await fetch(
-                '/api/health'
-            );
-
-        const data =
-            await response.json();
-
-        if (!response.ok) {
-            throw new Error(
-                data.error ||
-                `Server returned status ${response.status}`
-            );
-        }
-
-        output.textContent =
-            '✅ PayShield server is running and database is connected.';
-
-    } catch (error) {
-
-        output.textContent =
-            '❌ Server error: ' +
-            error.message;
-    }
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| Metrics
-|--------------------------------------------------------------------------
-*/
-
-async function loadMetrics() {
-
-    try {
-
-        const response =
-            await fetch(
-                '/api/metrics'
-            );
-
-        const data =
-            await response.json();
-
-        if (!response.ok) {
-            throw new Error(
-                data.error ||
-                `Server returned status ${response.status}`
-            );
-        }
-
-
-        const metrics =
-            data.metrics;
-
-
-        document.getElementById(
-            'totalInvoices'
-        ).textContent =
-            metrics.totalInvoices;
-
-
-        document.getElementById(
-            'paidInvoices'
-        ).textContent =
-            metrics.paidInvoices;
-
-
-        document.getElementById(
-            'partialInvoices'
-        ).textContent =
-            metrics.partiallyPaidInvoices;
-
-
-        document.getElementById(
-            'outstanding'
-        ).textContent =
-            `${metrics.outstandingAmount} ${data.organization.currency}`;
-
-
-    } catch (error) {
-
-        console.error(
-            'Metrics error:',
-            error
-        );
-    }
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| Invoice
-|--------------------------------------------------------------------------
-*/
-
-async function loadInvoice() {
-
-    const invoiceNumber =
-        document.getElementById(
-            'invoiceNumber'
-        ).value.trim();
-
-
-    const output =
-        document.getElementById(
-            'invoiceOutput'
-        );
-
-
-    if (!invoiceNumber) {
-
-        output.textContent =
-            'Please enter an invoice number.';
-
-        return;
-    }
-
-
-    try {
-
-        const response =
-            await fetch(
-                `/api/invoices/${encodeURIComponent(invoiceNumber)}`
-            );
-
-
-        const data =
-            await response.json();
-
-
-        if (!response.ok) {
-
-            throw new Error(
-                data.error ||
-                `Server returned status ${response.status}`
-            );
-        }
-
-
-        output.textContent =
-            JSON.stringify(
-                data,
-                null,
-                2
-            );
-
-
-    } catch (error) {
-
-        output.textContent =
-            'Error loading invoice: ' +
-            error.message;
-    }
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| Simulate Webhook
-|--------------------------------------------------------------------------
-*/
-
-async function simulateWebhook() {
-
-    const invoiceNumber =
-        document.getElementById(
-            'paymentInvoice'
-        ).value.trim();
-
-
-    const amount =
-        Number(
-            document.getElementById(
-                'paymentAmount'
-            ).value
-        );
-
-
-    const currency =
-        document.getElementById(
-            'paymentCurrency'
-        ).value.trim().toUpperCase();
-
-
-    const output =
-        document.getElementById(
-            'webhookOutput'
-        );
-
-
-    if (!invoiceNumber) {
-
-        output.textContent =
-            'Please enter an invoice number.';
-
-        return;
-    }
-
-
-    if (
-        !Number.isFinite(amount) ||
-        amount <= 0
-    ) {
-
-        output.textContent =
-            'Payment amount must be greater than zero.';
-
-        return;
-    }
-
-
-    try {
-
-        const eventId =
-            'evt_' +
-            crypto.randomUUID();
-
-
-        const response =
-            await fetch(
-                '/api/webhook/payment-received',
-                {
-
-                    method: 'POST',
-
-                    headers: {
-                        'Content-Type':
-                            'application/json'
-                    },
-
-                    body:
-                        JSON.stringify({
-
-                            eventId,
-
-                            invoiceNumber,
-
-                            amountPaid:
-                                amount,
-
-                            currency,
-
-                            paymentReference:
-                                'TEST_' +
-                                crypto.randomUUID()
-                        })
-                }
-            );
-
-
-        const data =
-            await response.json();
-
-
-        if (!response.ok) {
-
-            throw new Error(
-                data.error ||
-                `Server returned status ${response.status}`
-            );
-        }
-
-
-        output.textContent =
-            JSON.stringify(
-                data,
-                null,
-                2
-            );
-
-
-        await loadMetrics();
-
-        await loadInvoiceForDashboard(
-            invoiceNumber
-        );
-
-        await loadPaymentsForDashboard(
-            invoiceNumber
-        );
-
-
-    } catch (error) {
-
-        output.textContent =
-            'Error calling webhook: ' +
-            error.message;
-    }
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| Dashboard Invoice Refresh
-|--------------------------------------------------------------------------
-*/
-
-async function loadInvoiceForDashboard(
-    invoiceNumber
-) {
-
-    try {
-
-        const response =
-            await fetch(
-                `/api/invoices/${encodeURIComponent(invoiceNumber)}`
-            );
-
-
-        const data =
-            await response.json();
-
-
-        if (response.ok) {
-
-            document.getElementById(
-                'invoiceOutput'
-            ).textContent =
-                JSON.stringify(
-                    data,
-                    null,
-                    2
-                );
-        }
-
-    } catch (error) {
-
-        console.error(
-            'Invoice refresh error:',
-            error
-        );
-    }
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| Load Payment History
-|--------------------------------------------------------------------------
-*/
-
-async function loadPayments() {
-
-    const invoiceNumber =
-        document.getElementById(
-            'paymentInvoice'
-        ).value.trim();
-
-
-    await loadPaymentsForDashboard(
-        invoiceNumber
-    );
-}
-
-
-async function loadPaymentsForDashboard(
-    invoiceNumber
-) {
-
-    const output =
-        document.getElementById(
-            'paymentsOutput'
-        );
-
-
-    if (!invoiceNumber) {
-
-        output.textContent =
-            'Please enter an invoice number.';
-
-        return;
-    }
-
-
-    try {
-
-        const response =
-            await fetch(
-                `/api/invoices/${encodeURIComponent(invoiceNumber)}/payments`
-            );
-
-
-        const data =
-            await response.json();
-
-
-        if (!response.ok) {
-
-            throw new Error(
-                data.error ||
-                `Server returned status ${response.status}`
-            );
-        }
-
-
-        output.textContent =
-            JSON.stringify(
-                data,
-                null,
-                2
-            );
-
-
-    } catch (error) {
-
-        output.textContent =
-            'Error loading payments: ' +
-            error.message;
-    }
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| Initial Load
-|--------------------------------------------------------------------------
-*/
-
-checkHealth();
-
-loadMetrics();
-
-</script>
-
-</body>
-
 </html>
