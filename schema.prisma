@@ -9,12 +9,12 @@ generator client {
 
 model Organization {
   id        Int      @id @default(autoincrement())
-  name      String   @default("PayShield Enterprise")
+  name      String
+  currency  String   @default("USD")
+  createdAt DateTime @default(now())
   clients   Client[]
   invoices  Invoice[]
-  createdAt DateTime @default(now())
 }
-
 model Client {
   id             Int          @id @default(autoincrement())
   organizationId Int
