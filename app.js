@@ -248,11 +248,24 @@ app.get('/api/webhooklogs', async (req, res) => {
 // --- User Authentication Route ---
 app.post('/api/auth/signup', async (req, res) => {
   try {
-    const { email, password, name } = req.body;
+    const { email, name } = req.body;
     const existingUser = await prisma.client.findFirst({ where: { email } });
     if (existingUser) return res.status(400).json({ error: 'User already exists' });
     
-    const client = await prisma.client.create({ data: { name, email } });
+    // Find or create a default organization so Prisma doesn't throw an error
+    let org = await prisma.organization.findFirst();
+    if (!org) {
+      org = await prisma.organization.create({ data: { name: 'Default Organization', currency: 'USD' } });
+    }
+
+    const client = await prisma.client.create({ 
+      data: { 
+        name, 
+        email,
+        organization: { connect: { id: org.id } }
+      } 
+    });
+    
     res.json({ success: true, message: 'Account created successfully', client });
   } catch (error) {
     res.status(500).json({ error: error.message });
