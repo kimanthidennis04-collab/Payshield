@@ -208,6 +208,42 @@ app.get('/api/clients', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch clients' });
   }
 });
+// Additional Prisma Model Routes for Dashboard Tabs
+app.get('/api/invoices', async (req, res) => {
+  try {
+    const invoices = await prisma.invoice.findMany({ include: { client: true, payments: true } });
+    res.json(invoices);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/organizations', async (req, res) => {
+  try {
+    const orgs = await prisma.organization.findMany();
+    res.json(orgs);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/payments', async (req, res) => {
+  try {
+    const payments = await prisma.payment.findMany({ include: { invoice: true } });
+    res.json(payments);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/webhooklogs', async (req, res) => {
+  try {
+    const logs = await prisma.webhookLog.findMany();
+    res.json(logs);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 initializeApp().then(() => {
   app.listen(PORT, () => {
     console.log(`PayShield Enterprise running on http://localhost:${PORT}`);
