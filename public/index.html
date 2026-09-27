@@ -120,7 +120,7 @@
       const password = document.getElementById('authPassword').value;
       const name = document.getElementById('authName').value;
 
-      const endpoint = '/api/auth/signup';
+     const endpoint = isLoginMode ? '/api/auth/login' : '/api/auth/signup';
       try {
         const res = await fetch(endpoint, {
           method: 'POST',
