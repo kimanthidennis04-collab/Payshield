@@ -46,11 +46,13 @@
       <nav id="sidebar" class="col-md-3 col-lg-2 d-md-block bg-white sidebar collapse border-end vh-100 p-3">
         <h4 class="text-primary mb-4">PayShield</h4>
         <ul class="nav flex-column">
-          <li class="nav-item mb-2"><a href="#" class="nav-link active model-link" onclick="switchModel('client', this)">Client</a></li>
-          <li class="nav-item mb-2"><a href="#" class="nav-link model-link" onclick="switchModel('invoice', this)">Invoice</a></li>
-          <li class="nav-item mb-2"><a href="#" class="nav-link model-link" onclick="switchModel('organization', this)">Organization</a></li>
-          <li class="nav-item mb-2"><a href="#" class="nav-link model-link" onclick="switchModel('payment', this)">Payment</a></li>
-          <li class="nav-item mb-2"><a href="#" class="nav-link model-link" onclick="switchModel('webhooklog', this)">WebhookLog</a></li>
+         <li class="nav-item mb-2"><a href="#" class="nav-link active model-link" onclick="switchModel('client', this)">👤 Clients</a></li>
+          <li class="nav-item mb-2"><a href="#" class="nav-link model-link" onclick="switchModel('invoice', this)">📄 Smart Invoices</a></li>
+          <li class="nav-item mb-2"><a href="#" class="nav-link model-link" onclick="switchModel('payment', this)">💳 Payments & Tracking</a></li>
+          <li class="nav-item mb-2"><a href="#" class="nav-link model-link" onclick="switchModel('deliverable', this)">🔐 Deliverable Shield</a></li>
+          <li class="nav-Item mb-2"><a href="#" class="nav-link model-link" onclick="switchModel('ai-insights', this)">🤖 AI Cash-Flow & Insights</a></li>
+          <li class="nav-item mb-2"><a href="#" class="nav-link model-link" onclick="switchModel('organization', this)">🏢 Organization</a></li>
+          <li class="nav-item mb-2"><a href="#" class="nav-link model-link" onclick="switchModel('webhooklog', this)">⚡ Webhook Logs</a></li>
         </ul>
         <hr>
         <button class="btn btn-outline-danger w-100 btn-sm" onclick="logout()">Log Out</button>
@@ -225,6 +227,27 @@
 
     function loadCurrentModelData() {
       const tbody = document.getElementById('table-body');
+	  if (activeModel === 'ai-insights') {
+        thead.innerHTML = `<tr><th>AI Metric</th><th>Platform Intelligence Report</th></tr>`;
+        tbody.innerHTML = `<tr><td colspan="2" class="text-center py-4">Loading AI Cash-Flow Diagnostics...</td></tr>`;
+        
+        fetch('/api/ai/cashflow-insights')
+          .then(res => res.json())
+          .then(data => {
+            const info = data.aiInsights;
+            tbody.innerHTML = `
+              <tr><td><strong>Cash Flow Status</strong></td><td><span class="text-primary">${info.predictionSummary}</span></td></tr>
+              <tr><td><strong>Total Cash Collected</strong></td><td>$${info.totalCollected.toFixed(2)}</td></tr>
+              <tr><td><strong>Outstanding Receivables</strong></td><td>$${info.totalOutstanding.toFixed(2)}</td></tr>
+              <tr><td><strong>High-Risk Accounts</strong></td><td>${info.highRiskInvoices.length > 0 ? JSON.stringify(info.highRiskInvoices) : 'None detected'}</td></tr>
+              <tr><td><strong>AI Recommendation</strong></td><td><em>${info.recommendation}</em></td></tr>
+            `;
+          })
+          .catch(err => {
+            tbody.innerHTML = `<tr><td colspan="2" class="text-danger text-center">Error loading AI insights</td></tr>`;
+          });
+        return;
+      }
       const thead = document.getElementById('table-head');
       tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4">Loading...</td></tr>';
 
