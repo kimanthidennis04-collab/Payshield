@@ -20,8 +20,9 @@ model Client {
   id             Int          @id @default(autoincrement())
   name           String
   email          String       @unique
+  phone          String?      // <--- Add this line
   organizationId Int
- organization Organization @relation(fields: [organizationId], references: [id])
+  organization   Organization @relation(fields: [organizationId], references: [id])
   invoices       Invoice[]
   createdAt      DateTime     @default(now())
 }
