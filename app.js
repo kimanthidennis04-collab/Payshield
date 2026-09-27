@@ -271,6 +271,183 @@ app.post('/api/auth/signup', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+// --- AI Cash-Flow Insights & Forecasting ---
+app.get('/api/ai/cashflow-insights', async (req, res) => {
+  try {
+    const invoices = await prisma.invoice.findMany({ include: { payments: true, client: true } });
+    const payments = await prisma.payment.findMany();
+
+    const totalCollected = payments.reduce((sum, p) => sum + p.amount, 0);
+    let totalOutstanding = 0;
+    let highRiskClients = [];
+
+    invoices.forEach(inv => {
+      const paid = inv.payments.reduce((sum, p) => sum + p.amount, 0);
+      const balance = inv.amount - paid;
+      if (inv.status !== 'Paid' && balance > 0) {
+        totalOutstanding += balance;
+        if (inv.dueDate && new Date(inv.dueDate) < new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)) {
+          highRiskClients.push({ client: inv.client.name, invoice: inv.invoiceNumber, amountDue: balance });
+        }
+      }
+    });
+
+    let prediction = totalOutstanding > totalCollected 
+      ? "⚠️ Warning: Outstanding receivables exceed total cash collected." 
+      : "✅ Healthy Cash Flow: Collection rate is stable.";
+
+    res.json({
+      success: true,
+      aiInsights: {
+        predictionSummary: prediction,
+        totalCollected,
+        totalOutstanding,
+        highRiskInvoices: highRiskClients,
+        recommendation: highRiskClients.length > 0 ? "Trigger automated reminders." : "No urgent action required."
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// --- AI Dunning & Reminder Message Generator ---
+app.post('/api/ai/generate-reminder', async (req, res) => {
+  try {
+    const { clientName, invoiceNumber, amountDue, tone } = req.body; 
+    let message = tone === 'firm' 
+      ? `Hello ${clientName}, invoice ${invoiceNumber} for $${amountDue} is overdue. Kindly settle it.`
+      : `Hi ${clientName}, friendly reminder that invoice ${invoiceNumber} for $${amountDue} is pending.`;
+    res.json({ success: true, generatedMessage: message });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+// --- Enhanced Invoice Creation with Deliverable Shield ---
+app.post('/api/invoices', async (req, res) => {
+  try {
+    const { invoiceNumber, amount, tax, discount, clientId, organizationId, dueDate, deliverableTitle, lockedUrl } = req.body;
+    
+    // Create the invoice and automatically create a locked deliverable if provided
+    const invoice = await prisma.invoice.create({
+      data: {
+        invoiceNumber,
+        amount: parseFloat(amount),
+        tax: tax ? parseFloat(tax) : 0.0,
+        discount: discount ? parseFloat(discount) : 0.0,
+        status: 'Sent',
+        clientId: parseInt(clientId),
+        organizationId: parseInt(organizationId || 1),
+        dueDate: dueDate ? new Date(dueDate) : null,
+        deliverable: deliverableTitle ? {
+          create: {
+            title: deliverableTitle,
+            lockedUrl: lockedUrl || '#',
+            isUnlocked: false
+          }
+        } : undefined
+      },
+      include: { deliverable: true }
+    });
+
+    res.json({ success: true, invoice });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// --- Get All Invoices ---
+app.get('/api/invoices', async (req, res) => {
+  try {
+    const invoices = await prisma.invoice.findMany({
+      include: { client: true, payments: true, deliverable: true }
+    });
+    res.json(invoices);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// --- Payment Tracking & Automatic Deliverable Unlocking ---
+app.post('/api/payments', async (req, res) => {
+  try {
+    const { amount, status, reference, invoiceId } = req.body;
+    const invId = parseInt(invoiceId);
+    const paidAmount = parseFloat(amount);
+
+    // Record the payment
+    const payment = await prisma.payment.create({
+      data: {
+        amount: paidAmount,
+        status: status || 'SUCCESS',
+        reference: reference || 'DIRECT-PAY',
+        invoiceId: invId
+      }
+    });
+
+    // Check total payments made for this invoice
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: invId },
+      include: { payments: true, deliverable: true }
+    });
+
+    const totalPaid = invoice.payments.reduce((sum, p) => sum + p.amount, 0);
+
+    // If total payments cover or exceed invoice amount, mark as Paid and UNLOCK Deliverable!
+    if (totalPaid >= invoice.amount) {
+      await prisma.invoice.update({
+        where: { id: invId },
+        data: { status: 'Paid' }
+      });
+
+      if (invoice.deliverable) {
+        await prisma.deliverable.update({
+          where: { invoiceId: invId },
+          data: { isUnlocked: true }
+        });
+      }
+    }
+
+    res.json({ success: true, payment, invoiceFullyPaid: totalPaid >= invoice.amount });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// --- Financial Dashboard Metrics Route ---
+app.get('/api/dashboard/metrics', async (req, res) => {
+  try {
+    const invoices = await prisma.invoice.findMany({ include: { payments: true } });
+    const payments = await prisma.payment.findMany();
+
+    let totalCollected = payments.reduce((sum, p) => sum + p.amount, 0);
+    let outstandingReceivables = 0;
+    let overdueCount = 0;
+    let paidCount = 0;
+
+    invoices.forEach(inv => {
+      const paid = inv.payments.reduce((sum, p) => sum + p.amount, 0);
+      if (inv.status === 'Paid') {
+        paidCount++;
+      } else {
+        outstandingReceivables += (inv.amount - paid);
+        if (inv.dueDate && new Date(inv.dueDate) < new Date()) {
+          overdueCount++;
+        }
+      }
+    });
+
+    res.json({
+      totalCollected,
+      outstandingReceivables,
+      overdueInvoices: overdueCount,
+      paidInvoices: paidCount,
+      totalInvoices Monitored: invoices.length
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // --- Full Model POST Routes ---
 app.post('/api/invoices', async (req, res) => {
