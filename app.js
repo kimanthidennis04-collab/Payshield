@@ -462,6 +462,28 @@ app.post('/api/invoices', async (req, res) => {
   }
 });
 
+// --- Quotes Routes ---
+app.get('/api/quotes', async (req, res) => {
+  try {
+    const quotes = await prisma.quote.findMany();
+    res.json(quotes);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/quotes', async (req, res) => {
+  try {
+    const { quoteNumber, clientName, amount, validUntil } = req.body;
+    const quote = await prisma.quote.create({
+      data: { quoteNumber, clientName, amount: parseFloat(amount), validUntil: validUntil ? new Date(validUntil) : null }
+    });
+    res.json({ success: true, quote });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post('/api/organizations', async (req, res) => {
   try {
     const { name, currency } = req.body;
