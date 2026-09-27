@@ -1,6 +1,6 @@
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
+  url      = "file:./dev.db"
 }
 
 generator client {
@@ -8,44 +8,69 @@ generator client {
 }
 
 model Organization {
-  id        Int      @id @default(autoincrement())
-  name      String
-  currency  String   @default("USD")
-  createdAt DateTime @default(now())
-  clients   Client[]
-  invoices  Invoice[]
+  id           Int       @id @default(autoincrement())
+  name         String
+  currency     String    @default("USD")
+  clients      Client[]
+  invoices     Invoice[]
+  createdAt    DateTime  @default(now())
 }
+
 model Client {
   id             Int          @id @default(autoincrement())
-  organizationId Int
-  organization   Organization @relation(fields: [organizationId], references: [id])
   name           String
-  email          String
-  phone          String?
+  email          String       @unique
+  organizationId Int
+  organization   Organization @default(relation: fields: [organizationId], references: [id])
   invoices       Invoice[]
   createdAt      DateTime     @default(now())
 }
 
 model Invoice {
-  id             Int          @id @default(autoincrement())
-  organizationId Int
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  clientId       Int
-  client         Client       @relation(fields: [clientId], references: [id])
-  invoiceNumber  String       @unique
-  amount         Float
-  status         String       @default("PENDING") // PENDING, PAID, OVERDUE
-  payments       Payment[]
-  createdAt      DateTime     @default(now())
+  id               Int           @id @default(autoincrement())
+  invoiceNumber    String        @unique
+  amount           Float
+  tax              Float         @default(0.0)
+  discount         Float         @default(0.0)
+  status           String        @default("Draft") // Draft, Sent, Pending, Overdue, Paid
+  lineItems        String?       // JSON string of line items & quantities
+  clientId         Int
+  client           Client        @relation(fields: [clientId], references: [id])
+  organizationId   Int
+  organization     Organization  @relation(fields: [organizationId], references: [id])
+  payments         Payment[]
+  deliverable      Deliverable?
+  dueDate          DateTime?
+  createdAt        DateTime      @default(now())
 }
 
 model Payment {
-  id        Int      @id @default(autoincrement())
-  invoiceId Int
-  invoice   Invoice  @relation(fields: [invoiceId], references: [id])
-  amount    Float
-  status    String   @default("SUCCESS")
-  createdAt DateTime @default(now())
+  id            Int      @id @default(autoincrement())
+  amount        Float
+  status        String   @default("SUCCESS") // SUCCESS, PENDING, FAILED
+  reference     String?  // Transaction reference / M-Pesa code / Stripe ID
+  invoiceId     Int
+  invoice       Invoice  @relation(fields: [invoiceId], references: [id])
+  createdAt     DateTime @default(now())
+}
+
+model Deliverable {
+  id           Int      @id @default(autoincrement())
+  title        String
+  lockedUrl    String   // The secret project link or file URL
+  isUnlocked   Boolean  @default(false)
+  invoiceId    Int      @unique
+  invoice      Invoice  @relation(fields: [invoiceId], references: [id])
+  createdAt    DateTime @default(now())
+}
+
+model Subscription {
+  id             Int      @id @default(autoincrement())
+  planName       String   @default("Pro") // Starter, Pro, Enterprise ($50 tier)
+  status         String   @default("ACTIVE") // ACTIVE, TRIAL, CANCELED
+  organizationId Int      @unique
+  amount         Float    @default(50.00)
+  createdAt      DateTime @default(now())
 }
 
 model WebhookLog {
