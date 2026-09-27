@@ -271,6 +271,21 @@ app.post('/api/auth/signup', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+// --- User Login Route ---
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await prisma.client.findFirst({ where: { email } });
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found. Please sign up first.' });
+    }
+    
+    res.json({ success: true, message: 'Logged in successfully', user });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 // --- AI Cash-Flow Insights & Forecasting ---
 app.get('/api/ai/cashflow-insights', async (req, res) => {
   try {
