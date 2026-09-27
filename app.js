@@ -464,6 +464,17 @@ app.get('/api/dashboard/metrics', async (req, res) => {
   }
 });
 
+// --- Delete Client Route ---
+app.delete('/api/clients/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await prisma.client.delete({ where: { id: parseInt(id) } });
+    res.json({ success: true, message: `Client ${id} deleted successfully` });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // --- Full Model POST Routes ---
 app.post('/api/invoices', async (req, res) => {
   try {
