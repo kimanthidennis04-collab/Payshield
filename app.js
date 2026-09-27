@@ -442,7 +442,7 @@ app.get('/api/dashboard/metrics', async (req, res) => {
       outstandingReceivables,
       overdueInvoices: overdueCount,
       paidInvoices: paidCount,
-      totalInvoices Monitored: invoices.length
+      totalInvoices Monitored: invoices.length,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
