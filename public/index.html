@@ -208,21 +208,32 @@
       if (activeModel === 'organization') endpoint = '/api/organizations';
       if (activeModel === 'payment') endpoint = '/api/payments';
 
-      fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      })
-      .then(res => res.json())
-      .then(response => {
-        alert('Record successfully saved to database!');
-        var modal = bootstrap.Modal.getInstance(document.getElementById('addRecordModal'));
-        modal.hide();
-        loadCurrentModelData();
-      })
-      .catch(err => {
-        alert('Error saving record: ' + err.message);
-      });
+      try {
+            const res = await fetch(endpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(data)
+            });
+
+            const text = await res.text();
+            let resultData;
+            try {
+              resultData = JSON.parse(text);
+            } catch (err) {
+              throw new Error('This section is read-only or the save route is not configured yet.');
+            }
+
+            if (!res.ok) {
+              throw new Error(resultData.error || 'Failed to save record');
+            }
+
+            alert('Record successfully saved to database!');
+            var modal = bootstrap.Modal.getInstance(document.getElementById('addRecordModal'));
+            modal.hide();
+            loadCurrentModelData();
+          } catch (err) {
+            alert('Error: ' + err.message);
+          }
     });
 
     function loadCurrentModelData() {
