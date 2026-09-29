@@ -208,6 +208,31 @@ app.get('/api/clients', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch clients' });
   }
 });
+
+// 4b. Create Client Route
+app.post('/api/clients', async (req, res) => {
+  try {
+    const { name, email } = req.body;
+    const newClient = await prisma.client.create({
+      data: { name, email }
+    });
+    res.json(newClient);
+  } catch (error) {
+    console.error('Error creating client:', error);
+    res.status(500).json({ error: 'Failed to create client' });
+  }
+});
+
+// Quick helper to clear all test clients
+app.get('/api/clear-clients', async (req, res) => {
+  try {
+    await prisma.client.deleteMany({});
+    res.json({ success: true, message: 'All clients cleared successfully!' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Additional Prisma Model Routes for Dashboard Tabs
 app.get('/api/invoices', async (req, res) => {
   try {
