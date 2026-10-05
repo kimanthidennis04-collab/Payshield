@@ -46,11 +46,11 @@
       <nav id="sidebar" class="col-md-3 col-lg-2 d-md-block bg-white sidebar collapse border-end vh-100 p-3">
         <h4 class="text-primary mb-4">PayShield</h4>
         <ul class="nav flex-column">
-         <li class="nav-item mb-2"><a href="#" class="nav-link active model-link" onclick="switchModel('client', this)">👤 Clients</a></li>
+          <li class="nav-item mb-2"><a href="#" class="nav-link active model-link" onclick="switchModel('client', this)">👤 Clients</a></li>
           <li class="nav-item mb-2"><a href="#" class="nav-link model-link" onclick="switchModel('invoice', this)">📄 Smart Invoices</a></li>
           <li class="nav-item mb-2"><a href="#" class="nav-link model-link" onclick="switchModel('payment', this)">💳 Payments & Tracking</a></li>
           <li class="nav-item mb-2"><a href="#" class="nav-link model-link" onclick="switchModel('deliverable', this)">🔐 Deliverable Shield</a></li>
-          <li class="nav-Item mb-2"><a href="#" class="nav-link model-link" onclick="switchModel('ai-insights', this)">🤖 AI Cash-Flow & Insights</a></li>
+          <li class="nav-item mb-2"><a href="#" class="nav-link model-link" onclick="switchModel('ai-insights', this)">🤖 AI Cash-Flow & Insights</a></li>
           <li class="nav-item mb-2"><a href="#" class="nav-link model-link" onclick="switchModel('organization', this)">🏢 Organization</a></li>
           <li class="nav-item mb-2"><a href="#" class="nav-link model-link" onclick="switchModel('webhooklog', this)">⚡ Webhook Logs</a></li>
         </ul>
@@ -120,7 +120,7 @@
       const password = document.getElementById('authPassword').value;
       const name = document.getElementById('authName').value;
 
-     const endpoint = isLoginMode ? '/api/auth/login' : '/api/auth/signup';
+      const endpoint = isLoginMode ? '/api/auth/login' : '/api/auth/signup';
       try {
         const res = await fetch(endpoint, {
           method: 'POST',
@@ -209,36 +209,38 @@
       if (activeModel === 'payment') endpoint = '/api/payments';
 
       try {
-            const res = await fetch(endpoint, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(data)
-            });
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
 
-            const text = await res.text();
-            let resultData;
-            try {
-              resultData = JSON.parse(text);
-            } catch (err) {
-              throw new Error('This section is read-only or the save route is not configured yet.');
-            }
+        const text = await res.text();
+        let resultData;
+        try {
+          resultData = JSON.parse(text);
+        } catch (err) {
+          throw new Error('This section is read-only or the save route is not configured yet.');
+        }
 
-            if (!res.ok) {
-              throw new Error(resultData.error || 'Failed to save record');
-            }
+        if (!res.ok) {
+          throw new Error(resultData.error || 'Failed to save record');
+        }
 
-            alert('Record successfully saved to database!');
-            var modal = bootstrap.Modal.getInstance(document.getElementById('addRecordModal'));
-            modal.hide();
-            loadCurrentModelData();
-          } catch (err) {
-            alert('Error: ' + err.message);
-          }
+        alert('Record successfully saved to database!');
+        var modal = bootstrap.Modal.getInstance(document.getElementById('addRecordModal'));
+        modal.hide();
+        loadCurrentModelData();
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
     });
 
     function loadCurrentModelData() {
       const tbody = document.getElementById('table-body');
-	  if (activeModel === 'ai-insights') {
+      const thead = document.getElementById('table-head');
+
+      if (activeModel === 'ai-insights') {
         thead.innerHTML = `<tr><th>AI Metric</th><th>Platform Intelligence Report</th></tr>`;
         tbody.innerHTML = `<tr><td colspan="2" class="text-center py-4">Loading AI Cash-Flow Diagnostics...</td></tr>`;
         
@@ -259,7 +261,7 @@
           });
         return;
       }
-      const thead = document.getElementById('table-head');
+
       tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4">Loading...</td></tr>';
 
       let endpoint = '/api/clients';
