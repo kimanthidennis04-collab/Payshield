@@ -10,18 +10,13 @@ app.use(express.static('public'));
 
 // Bulletproof helper: Dynamically finds or creates organization and client safely
 async function getOrCreateDefaultClient() {
-  // 1. Find the first organization, or create one if none exist
   let org = await prisma.organization.findFirst();
   if (!org) {
     org = await prisma.organization.create({
-      data: { 
-        name: 'PayShield Enterprise', 
-        currency: 'USD' 
-      }
+      data: { name: 'PayShield Enterprise', currency: 'USD' }
     });
   }
 
-  // 2. Find or create a default client linked to this organization
   let client = await prisma.client.findFirst({ 
     where: { organizationId: org.id } 
   });
@@ -65,13 +60,13 @@ app.get('/api/metrics', async (req, res) => {
     const defaultClient = await getOrCreateDefaultClient();
     const invoices = await prisma.invoice.findMany({ include: { payments: true } });
     const totalInvoices = invoices.length;
-    const paidInvoices = invoices.filter(i => i.status === 'PAID').length;
+    const paidInvoices = invoices.filter(i => i.status === 'PAID' || i.status === 'Paid').length;
     const partiallyPaidInvoices = invoices.filter(i => i.status === 'PARTIAL').length;
     
     let outstandingAmount = 0;
     invoices.forEach(inv => {
       const paidSum = inv.payments.reduce((acc, p) => acc + p.amount, 0);
-      if (inv.status !== 'PAID') {
+      if (inv.status !== 'PAID' && inv.status !== 'Paid') {
         outstandingAmount += (inv.amount - paidSum);
       }
     });
@@ -80,150 +75,50 @@ app.get('/api/metrics', async (req, res) => {
 
     res.json({
       success: true,
-      metrics: {
-        totalInvoices,
-        paidInvoices,
-        partiallyPaidInvoices,
-        outstandingAmount
-      },
-      organization: {
-        currency: org?.currency || 'USD'
-      }
+      metrics: { totalInvoices, paidInvoices, partiallyPaidInvoices, outstandingAmount },
+      organization: { currency: org?.currency || 'USD' }
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// 4. Get or Auto-Create Invoice with Client Relation
-app.get('/api/invoices/:invoiceNumber', async (req, res) => {
-  try {
-    const { invoiceNumber } = req.params;
-    let invoice = await prisma.invoice.findUnique({
-      where: { invoiceNumber },
-      include: { client: true, payments: true }
-    });
-
-    if (!invoice) {
-      const defaultClient = await getOrCreateDefaultClient();
-      
-      invoice = await prisma.invoice.create({
-        data: {
-          invoiceNumber: invoiceNumber,
-          amount: 1700.00,
-          status: 'PENDING',
-          organizationId: defaultClient.organizationId,
-          clientId: defaultClient.id
-        },
-        include: { client: true, payments: true }
-      });
-    }
-
-    res.json({ success: true, invoice });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// 5. Invoice Payments Endpoint
-app.get('/api/invoices/:invoiceNumber/payments', async (req, res) => {
-  try {
-    const { invoiceNumber } = req.params;
-    const invoice = await prisma.invoice.findUnique({
-      where: { invoiceNumber },
-      include: { payments: true }
-    });
-
-    if (!invoice) {
-      return res.status(404).json({ success: false, error: 'Invoice not found' });
-    }
-
-    res.json({ success: true, payments: invoice.payments });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// 6. Webhook Payment Received Route
-app.post('/api/webhook/payment-received', async (req, res) => {
-  try {
-    const { invoiceNumber, amountPaid } = req.body;
-    let invoice = await prisma.invoice.findUnique({ 
-      where: { invoiceNumber: invoiceNumber || 'INV-1001' },
-      include: { payments: true }
-    });
-
-    const defaultClient = await getOrCreateDefaultClient();
-
-    if (!invoice) {
-      invoice = await prisma.invoice.create({
-        data: {
-          invoiceNumber: invoiceNumber || 'INV-1001',
-          amount: 1700.00,
-          status: 'PENDING',
-          organizationId: defaultClient.organizationId,
-          clientId: defaultClient.id
-        },
-        include: { payments: true }
-      });
-    }
-
-    const payment = await prisma.payment.create({
-      data: {
-        invoiceId: invoice.id,
-        amount: amountPaid ? parseFloat(amountPaid) : invoice.amount,
-        status: 'SUCCESS'
-      }
-    });
-
-    // Re-fetch all payments for accurate calculation
-    const updatedPayments = await prisma.payment.findMany({ where: { invoiceId: invoice.id } });
-    const totalPaid = updatedPayments.reduce((acc, p) => acc + p.amount, 0);
-    
-    let newStatus = 'PENDING';
-    if (totalPaid >= invoice.amount) {
-      newStatus = 'PAID';
-    } else if (totalPaid > 0) {
-      newStatus = 'PARTIAL';
-    }
-
-    const updatedInvoice = await prisma.invoice.update({
-      where: { id: invoice.id },
-      data: { status: newStatus },
-      include: { client: true, payments: true }
-    });
-
-    res.json({ success: true, message: 'Payment processed successfully', invoice: updatedInvoice, payment });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-// 4. Clients Route
+// 4. Clients Routes
 app.get('/api/clients', async (req, res) => {
   try {
     const clients = await prisma.client.findMany();
     res.json(clients);
   } catch (error) {
-    console.error('Error fetching clients:', error);
     res.status(500).json({ error: 'Failed to fetch clients' });
   }
 });
 
-// 4b. Create Client Route
 app.post('/api/clients', async (req, res) => {
   try {
     const { name, email } = req.body;
+    let org = await prisma.organization.findFirst();
+    if (!org) {
+      org = await prisma.organization.create({ data: { name: 'Default Organization', currency: 'USD' } });
+    }
     const newClient = await prisma.client.create({
-      data: { name, email }
+      data: { name, email, organizationId: org.id }
     });
     res.json(newClient);
   } catch (error) {
-    console.error('Error creating client:', error);
     res.status(500).json({ error: 'Failed to create client' });
   }
 });
 
-// Quick helper to clear all test clients
+app.delete('/api/clients/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await prisma.client.delete({ where: { id: parseInt(id) } });
+    res.json({ success: true, message: `Client ${id} deleted successfully` });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/api/clear-clients', async (req, res) => {
   try {
     await prisma.client.deleteMany({});
@@ -233,20 +128,116 @@ app.get('/api/clear-clients', async (req, res) => {
   }
 });
 
-// Additional Prisma Model Routes for Dashboard Tabs
+// 5. Invoices Routes (Combined & Fixed with Deliverable Support)
 app.get('/api/invoices', async (req, res) => {
   try {
-    const invoices = await prisma.invoice.findMany({ include: { client: true, payments: true } });
+    const invoices = await prisma.invoice.findMany({
+      include: { client: true, payments: true, deliverable: true }
+    });
     res.json(invoices);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-app.get('/api/organizations', async (req, res) => {
+app.get('/api/invoices/:invoiceNumber', async (req, res) => {
   try {
-    const orgs = await prisma.organization.findMany();
-    res.json(orgs);
+    const { invoiceNumber } = req.params;
+    let invoice = await prisma.invoice.findUnique({
+      where: { invoiceNumber },
+      include: { client: true, payments: true, deliverable: true }
+    });
+
+    if (!invoice) {
+      const defaultClient = await getOrCreateDefaultClient();
+      invoice = await prisma.invoice.create({
+        data: {
+          invoiceNumber,
+          amount: 1700.00,
+          status: 'PENDING',
+          organizationId: defaultClient.organizationId,
+          clientId: defaultClient.id
+        },
+        include: { client: true, payments: true, deliverable: true }
+      });
+    }
+
+    res.json({ success: true, invoice });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/invoices', async (req, res) => {
+  try {
+    const { invoiceNumber, amount, tax, discount, clientId, organizationId, dueDate, deliverableTitle, lockedUrl } = req.body;
+    const defaultClient = await getOrCreateDefaultClient();
+    
+    const invoice = await prisma.invoice.create({
+      data: {
+        invoiceNumber,
+        amount: parseFloat(amount),
+        tax: tax ? parseFloat(tax) : 0.0,
+        discount: discount ? parseFloat(discount) : 0.0,
+        status: 'Sent',
+        clientId: clientId ? parseInt(clientId) : defaultClient.id,
+        organizationId: organizationId ? parseInt(organizationId) : defaultClient.organizationId,
+        dueDate: dueDate ? new Date(dueDate) : null,
+        deliverable: deliverableTitle ? {
+          create: {
+            title: deliverableTitle,
+            lockedUrl: lockedUrl || '#',
+            isUnlocked: false
+          }
+        } : undefined
+      },
+      include: { deliverable: true, client: true }
+    });
+
+    res.json({ success: true, invoice });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 6. Payments & Automatic Deliverable Unlocking Route
+app.post('/api/payments', async (req, res) => {
+  try {
+    const { amount, status, reference, invoiceId } = req.body;
+    const invId = parseInt(invoiceId);
+    const paidAmount = parseFloat(amount);
+
+    const payment = await prisma.payment.create({
+      data: {
+        amount: paidAmount,
+        status: status || 'SUCCESS',
+        reference: reference || 'DIRECT-PAY',
+        invoiceId: invId
+      }
+    });
+
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: invId },
+      include: { payments: true, deliverable: true }
+    });
+
+    const totalPaid = invoice.payments.reduce((sum, p) => sum + p.amount, 0);
+
+    if (totalPaid >= invoice.amount) {
+      await prisma.invoice.update({
+        where: { id: invId },
+        data: { status: 'Paid' }
+      });
+
+      if (invoice.deliverable) {
+        await prisma.deliverable.update({
+          where: { invoiceId: invId },
+          data: { isUnlocked: true }
+        });
+      }
+    }
+
+    res.json({ success: true, payment, invoiceFullyPaid: totalPaid >= invoice.amount });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -261,6 +252,107 @@ app.get('/api/payments', async (req, res) => {
   }
 });
 
+// 7. Webhook Payment Received Route
+app.post('/api/webhook/payment-received', async (req, res) => {
+  try {
+    const { invoiceNumber, amountPaid } = req.body;
+    let invoice = await prisma.invoice.findUnique({ 
+      where: { invoiceNumber: invoiceNumber || 'INV-1001' },
+      include: { payments: true, deliverable: true }
+    });
+
+    const defaultClient = await getOrCreateDefaultClient();
+
+    if (!invoice) {
+      invoice = await prisma.invoice.create({
+        data: {
+          invoiceNumber: invoiceNumber || 'INV-1001',
+          amount: 1700.00,
+          status: 'PENDING',
+          organizationId: defaultClient.organizationId,
+          clientId: defaultClient.id
+        },
+        include: { payments: true, deliverable: true }
+      });
+    }
+
+    const payment = await prisma.payment.create({
+      data: {
+        invoiceId: invoice.id,
+        amount: amountPaid ? parseFloat(amountPaid) : invoice.amount,
+        status: 'SUCCESS'
+      }
+    });
+
+    const updatedPayments = await prisma.payment.findMany({ where: { invoiceId: invoice.id } });
+    const totalPaid = updatedPayments.reduce((acc, p) => acc + p.amount, 0);
+    
+    let newStatus = 'PENDING';
+    if (totalPaid >= invoice.amount) {
+      newStatus = 'Paid';
+      if (invoice.deliverable) {
+        await prisma.deliverable.update({
+          where: { invoiceId: invoice.id },
+          data: { isUnlocked: true }
+        });
+      }
+    } else if (totalPaid > 0) {
+      newStatus = 'PARTIAL';
+    }
+
+    const updatedInvoice = await prisma.invoice.update({
+      where: { id: invoice.id },
+      data: { status: newStatus },
+      include: { client: true, payments: true, deliverable: true }
+    });
+
+    res.json({ success: true, message: 'Payment processed successfully', invoice: updatedInvoice, payment });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 8. Organizations & Quotes & Other Routes
+app.get('/api/organizations', async (req, res) => {
+  try {
+    const orgs = await prisma.organization.findMany();
+    res.json(orgs);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/organizations', async (req, res) => {
+  try {
+    const { name, currency } = req.body;
+    const org = await prisma.organization.create({ data: { name, currency } });
+    res.json({ success: true, org });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/quotes', async (req, res) => {
+  try {
+    const quotes = await prisma.quote.findMany();
+    res.json(quotes);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/quotes', async (req, res) => {
+  try {
+    const { quoteNumber, clientName, amount, validUntil } = req.body;
+    const quote = await prisma.quote.create({
+      data: { quoteNumber, clientName, amount: parseFloat(amount), validUntil: validUntil ? new Date(validUntil) : null }
+    });
+    res.json({ success: true, quote });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/api/webhooklogs', async (req, res) => {
   try {
     const logs = await prisma.webhookLog.findMany();
@@ -270,25 +362,20 @@ app.get('/api/webhooklogs', async (req, res) => {
   }
 });
 
-// --- User Authentication Route ---
+// 9. Auth & AI Insights Routes
 app.post('/api/auth/signup', async (req, res) => {
   try {
     const { email, name } = req.body;
     const existingUser = await prisma.client.findFirst({ where: { email } });
     if (existingUser) return res.status(400).json({ error: 'User already exists' });
     
-    // Find or create a default organization so Prisma doesn't throw an error
     let org = await prisma.organization.findFirst();
     if (!org) {
       org = await prisma.organization.create({ data: { name: 'Default Organization', currency: 'USD' } });
     }
 
     const client = await prisma.client.create({ 
-      data: { 
-        name, 
-        email,
-        organization: { connect: { id: org.id } }
-      } 
+      data: { name, email, organizationId: org.id } 
     });
     
     res.json({ success: true, message: 'Account created successfully', client });
@@ -296,28 +383,24 @@ app.post('/api/auth/signup', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-// --- User Login Route ---
+
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email } = req.body;
     const user = await prisma.client.findFirst({ where: { email } });
-    
-    if (!user) {
-      return res.status(404).json({ error: 'User not found. Please sign up first.' });
-    }
-    
+    if (!user) return res.status(404).json({ error: 'User not found. Please sign up first.' });
     res.json({ success: true, message: 'Logged in successfully', user });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
-// --- AI Cash-Flow Insights & Forecasting ---
+
 app.get('/api/ai/cashflow-insights', async (req, res) => {
   try {
     const invoices = await prisma.invoice.findMany({ include: { payments: true, client: true } });
     const payments = await prisma.payment.findMany();
 
-    const totalCollected = payments.reduce((sum, p) => sum + p.amount, 0);
+    let totalCollected = payments.reduce((sum, p) => sum + p.amount, 0);
     let totalOutstanding = 0;
     let highRiskClients = [];
 
@@ -327,7 +410,7 @@ app.get('/api/ai/cashflow-insights', async (req, res) => {
       if (inv.status !== 'Paid' && balance > 0) {
         totalOutstanding += balance;
         if (inv.dueDate && new Date(inv.dueDate) < new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)) {
-          highRiskClients.push({ client: inv.client.name, invoice: inv.invoiceNumber, amountDue: balance });
+          highRiskClients.push({ client: inv.client?.name || 'Unknown', invoice: inv.invoiceNumber, amountDue: balance });
         }
       }
     });
@@ -351,7 +434,6 @@ app.get('/api/ai/cashflow-insights', async (req, res) => {
   }
 });
 
-// --- AI Dunning & Reminder Message Generator ---
 app.post('/api/ai/generate-reminder', async (req, res) => {
   try {
     const { clientName, invoiceNumber, amountDue, tone } = req.body; 
@@ -363,98 +445,7 @@ app.post('/api/ai/generate-reminder', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-// --- Enhanced Invoice Creation with Deliverable Shield ---
-app.post('/api/invoices', async (req, res) => {
-  try {
-    const { invoiceNumber, amount, tax, discount, clientId, organizationId, dueDate, deliverableTitle, lockedUrl } = req.body;
-    
-    // Create the invoice and automatically create a locked deliverable if provided
-    const invoice = await prisma.invoice.create({
-      data: {
-        invoiceNumber,
-        amount: parseFloat(amount),
-        tax: tax ? parseFloat(tax) : 0.0,
-        discount: discount ? parseFloat(discount) : 0.0,
-        status: 'Sent',
-        clientId: parseInt(clientId),
-        organizationId: parseInt(organizationId || 1),
-        dueDate: dueDate ? new Date(dueDate) : null,
-        deliverable: deliverableTitle ? {
-          create: {
-            title: deliverableTitle,
-            lockedUrl: lockedUrl || '#',
-            isUnlocked: false
-          }
-        } : undefined
-      },
-      include: { deliverable: true }
-    });
 
-    res.json({ success: true, invoice });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// --- Get All Invoices ---
-app.get('/api/invoices', async (req, res) => {
-  try {
-    const invoices = await prisma.invoice.findMany({
-      include: { client: true, payments: true, deliverable: true }
-    });
-    res.json(invoices);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// --- Payment Tracking & Automatic Deliverable Unlocking ---
-app.post('/api/payments', async (req, res) => {
-  try {
-    const { amount, status, reference, invoiceId } = req.body;
-    const invId = parseInt(invoiceId);
-    const paidAmount = parseFloat(amount);
-
-    // Record the payment
-    const payment = await prisma.payment.create({
-      data: {
-        amount: paidAmount,
-        status: status || 'SUCCESS',
-        reference: reference || 'DIRECT-PAY',
-        invoiceId: invId
-      }
-    });
-
-    // Check total payments made for this invoice
-    const invoice = await prisma.invoice.findUnique({
-      where: { id: invId },
-      include: { payments: true, deliverable: true }
-    });
-
-    const totalPaid = invoice.payments.reduce((sum, p) => sum + p.amount, 0);
-
-    // If total payments cover or exceed invoice amount, mark as Paid and UNLOCK Deliverable!
-    if (totalPaid >= invoice.amount) {
-      await prisma.invoice.update({
-        where: { id: invId },
-        data: { status: 'Paid' }
-      });
-
-      if (invoice.deliverable) {
-        await prisma.deliverable.update({
-          where: { invoiceId: invId },
-          data: { isUnlocked: true }
-        });
-      }
-    }
-
-    res.json({ success: true, payment, invoiceFullyPaid: totalPaid >= invoice.amount });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// --- Financial Dashboard Metrics Route ---
 app.get('/api/dashboard/metrics', async (req, res) => {
   try {
     const invoices = await prisma.invoice.findMany({ include: { payments: true } });
@@ -482,80 +473,14 @@ app.get('/api/dashboard/metrics', async (req, res) => {
       outstandingReceivables,
       overdueInvoices: overdueCount,
       paidInvoices: paidCount,
-     totalInvoicesCount: invoices.length,
+      totalInvoicesCount: invoices.length,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// --- Delete Client Route ---
-app.delete('/api/clients/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    await prisma.client.delete({ where: { id: parseInt(id) } });
-    res.json({ success: true, message: `Client ${id} deleted successfully` });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// --- Full Model POST Routes ---
-app.post('/api/invoices', async (req, res) => {
-  try {
-    const { invoiceNumber, amount, clientId } = req.body;
-    const invoice = await prisma.invoice.create({
-      data: { invoiceNumber, amount: parseFloat(amount), clientId: parseInt(clientId) }
-    });
-    res.json({ success: true, invoice });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// --- Quotes Routes ---
-app.get('/api/quotes', async (req, res) => {
-  try {
-    const quotes = await prisma.quote.findMany();
-    res.json(quotes);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.post('/api/quotes', async (req, res) => {
-  try {
-    const { quoteNumber, clientName, amount, validUntil } = req.body;
-    const quote = await prisma.quote.create({
-      data: { quoteNumber, clientName, amount: parseFloat(amount), validUntil: validUntil ? new Date(validUntil) : null }
-    });
-    res.json({ success: true, quote });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.post('/api/organizations', async (req, res) => {
-  try {
-    const { name, currency } = req.body;
-    const org = await prisma.organization.create({ data: { name, currency } });
-    res.json({ success: true, org });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.post('/api/payments', async (req, res) => {
-  try {
-    const { amount, status, invoiceId } = req.body;
-    const payment = await prisma.payment.create({
-      data: { amount: parseFloat(amount), status, invoiceId: parseInt(invoiceId) }
-    });
-    res.json({ success: true, payment });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+// Start Server
 initializeApp().then(() => {
   app.listen(PORT, () => {
     console.log(`PayShield Enterprise running on http://localhost:${PORT}`);
