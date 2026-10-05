@@ -3,131 +3,85 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Invoice & Services | PayShield</title>
+  <title>Client Portal | PayShield</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
     body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    .invoice-card { max-width: 700px; margin: 50px auto; padding: 40px; background: white; border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,0.08); }
+    .portal-card { max-width: 600px; margin: 50px auto; padding: 40px; background: white; border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,0.08); }
     .brand-title { font-weight: 700; color: #0d6efd; }
-    .status-badge { font-size: 0.9rem; padding: 6px 14px; border-radius: 20px; }
   </style>
 </head>
 <body>
 
   <div class="container">
-    <div class="invoice-card">
-      <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
-        <div>
-          <h2 class="brand-title mb-1">PayShield</h2>
-          <p class="text-muted mb-0">Client Service & Escrow Portal</p>
-        </div>
-        <div class="text-end">
-          <h4 class="mb-1" id="invoiceNumberDisplay">INV-Loading</h4>
-          <span class="badge bg-warning text-dark status-badge" id="invoiceStatus">PENDING</span>
-        </div>
+    <div class="portal-card">
+      <div class="text-center mb-4">
+        <h2 class="brand-title">PayShield Client Portal</h2>
+        <p class="text-muted">Fill out the blank form below to submit your invoice details and secure deliverables.</p>
       </div>
 
-      <div class="row mb-4">
-        <div class="col-sm-6">
-          <h6 class="text-muted text-uppercase fs-7">Client Details:</h6>
-          <h5 id="clientName" class="mb-1">Loading Client...</h5>
-          <p class="text-muted mb-0" id="clientEmail">-</p>
+      <form id="clientInvoiceForm" onsubmit="submitClientInvoice(event)">
+        <div class="mb-3">
+          <label class="form-label fw-bold">Your Business / Client Name</label>
+          <input type="text" id="clientNameInput" class="form-control" placeholder="e.g. Miri Enterprise Ltd" required>
         </div>
-        <div class="col-sm-6 text-sm-end mt-3 mt-sm-0">
-          <h6 class="text-muted text-uppercase fs-7">Total Amount Due:</h6>
-          <h3 class="text-success fw-bold" id="invoiceAmount">$0.00</h3>
+
+        <div class="mb-3">
+          <label class="form-label fw-bold">Invoice Number</label>
+          <input type="text" id="invoiceNumberInput" class="form-control" placeholder="e.g. INV-2026-001" required>
         </div>
-      </div>
 
-      <!-- Live Service Breakdown Section -->
-      <div class="mb-4">
-        <h6 class="text-muted text-uppercase fs-7 mb-3">Service Scope & Deliverables:</h6>
-        <div class="table-responsive">
-          <table class="table table-bordered align-middle">
-            <thead class="table-light">
-              <tr>
-                <th>Service / Milestone</th>
-                <th class="text-end">Amount</th>
-              </tr>
-            </thead>
-            <tbody id="serviceTableBody">
-              <tr>
-                <td colspan="2" class="text-center text-muted">Fetching project deliverables...</td>
-              </tr>
-            </tbody>
-          </table>
+        <div class="mb-3">
+          <label class="form-label fw-bold">Amount ($)</label>
+          <input type="number" id="invoiceAmountInput" class="form-control" placeholder="e.g. 1500" required>
         </div>
-      </div>
 
-      <div class="alert alert-light border mb-4">
-        <small class="text-muted"><strong>Deliverable Shield Protection:</strong> Funds remain safely locked in escrow and are only released to the developer once service milestones are fully verified and approved.</small>
-      </div>
+        <div class="mb-3">
+          <label class="form-label fw-bold">Service / Deliverable Description</label>
+          <textarea id="serviceDescInput" class="form-control" rows="3" placeholder="Describe the service or milestone details..." required></textarea>
+        </div>
 
-      <div class="d-grid gap-2">
-        <button id="payNowBtn" class="btn btn-primary btn-lg shadow-sm" onclick="simulatePayment()">Approve & Pay Securely</button>
-      </div>
-      
-      <div class="text-center mt-4">
-        <small class="text-muted">Secured & Verified by PayShield Enterprise Engine</small>
+        <div class="d-grid gap-2 mt-4">
+          <button type="submit" class="btn btn-primary btn-lg">Submit Invoice & Lock Escrow</button>
+        </div>
+      </form>
+
+      <div id="successMessage" class="alert alert-success mt-4 d-none text-center">
+        <strong>Success!</strong> Your invoice has been submitted and protected under Deliverable Shield.
       </div>
     </div>
   </div>
 
   <script>
-    // Fetch live invoice data from backend API
-    async function loadClientInvoice() {
-      try {
-        // For testing, you can pass an ID like ?id=1 in your URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const invoiceId = urlParams.get('id') || '1';
-        
-        const response = await fetch('/api/invoices');
-        const invoices = await response.json();
-        
-        // Find the specific invoice or default to the first one
-        const invoice = invoices.find(inv => inv.id == invoiceId) || invoices[0];
-        
-        if (invoice) {
-          document.getElementById('invoiceNumberDisplay').textContent = invoice.invoiceNumber || `INV-${invoice.id}`;
-          document.getElementById('invoiceAmount').textContent = `$${invoice.amount || '0.00'}`;
-          document.getElementById('invoiceStatus').textContent = invoice.status || 'PENDING';
-          
-          if(invoice.client) {
-            document.getElementById('clientName').textContent = invoice.client.name;
-            document.getElementById('clientEmail').textContent = invoice.client.email;
-          }
+    async function submitClientInvoice(event) {
+      event.preventDefault();
+      
+      const payload = {
+        name: document.getElementById('clientNameInput').value,
+        invoiceNumber: document.getElementById('invoiceNumberInput').value,
+        amount: parseFloat(document.getElementById('invoiceAmountInput').value),
+        description: document.getElementById('serviceDescInput').value
+      };
 
-          // Render service items or description
-          const tbody = document.getElementById('serviceTableBody');
-          tbody.innerHTML = `
-            <tr>
-              <td><strong>Professional Service / Milestone Delivery</strong><br><small class="text-muted">Linked Contract ID: ${invoice.id}</small></td>
-              <td class="text-end fw-bold">$${invoice.amount || '0.00'}</td>
-            </tr>
-          `;
+      try {
+        // Sends the data directly to your backend API route
+        const response = await fetch('/api/invoices', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+          document.getElementById('clientInvoiceForm').reset();
+          document.getElementById('successMessage').classList.remove('d-none');
         } else {
-          document.getElementById('clientName').textContent = 'No invoice found';
+          alert('Error submitting invoice. Please check your inputs.');
         }
       } catch (err) {
-        console.error('Failed to load invoice data', err);
-        document.getElementById('clientName').textContent = 'Error loading client data';
+        console.error('Submission failed', err);
+        alert('Network error while saving record.');
       }
     }
-
-    function simulatePayment() {
-      const btn = document.getElementById('payNowBtn');
-      btn.disabled = true;
-      btn.textContent = 'Processing Escrow Payment...';
-      
-      setTimeout(() => {
-        document.getElementById('invoiceStatus').className = 'badge bg-success status-badge';
-        document.getElementById('invoiceStatus').textContent = 'PAID & SECURED';
-        btn.className = 'btn btn-success btn-lg shadow-sm';
-        btn.textContent = 'Milestone Funded Successfully ✓';
-      }, 1500);
-    }
-
-    loadClientInvoice();
   </script>
 </body>
 </html>
