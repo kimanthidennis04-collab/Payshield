@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign Up - PayShield</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="auth-container">
+    <div class="auth-card">
+      <div class="auth-header">
+        <h1>PayShield</h1>
+        <p>Create your account</p>
+      </div>
+      <form id="signupForm">
+        <div class="form-group">
+          <label for="name">Full Name</label>
+          <input type="text" id="name" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input type="email" id="email" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" class="form-control" required minlength="6">
+        </div>
+        <div class="form-group">
+          <label for="businessName">Business Name</label>
+          <input type="text" id="businessName" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label for="country">Country (Optional)</label>
+          <input type="text" id="country" class="form-control">
+        </div>
+        <div class="form-group">
+          <label for="currency">Currency</label>
+          <select id="currency" class="form-control">
+            <option value="USD">USD - US Dollar</option>
+            <option value="KES">KES - Kenyan Shilling</option>
+            <option value="UGX">UGX - Ugandan Shilling</option>
+            <option value="TZS">TZS - Tanzanian Shilling</option>
+            <option value="RWF">RWF - Rwandan Franc</option>
+            <option value="GBP">GBP - British Pound</option>
+            <option value="EUR">EUR - Euro</option>
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%;">Create Account</button>
+      </form>
+      <p style="text-align: center; margin-top: 1rem; color: var(--text-light);">
+        Already have an account? <a href="/login" style="color: var(--primary);">Sign in</a>
+      </p>
+      <div id="error" class="alert alert-error" style="display: none;"></div>
+    </div>
+  </div>
+
+  <script src="/js/auth.js"></script>
+</body>
+</html>

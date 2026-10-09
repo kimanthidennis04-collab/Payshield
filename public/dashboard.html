@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - PayShield</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container navbar-content">
+      <a href="/dashboard" class="navbar-brand">PayShield</a>
+      <ul class="navbar-nav">
+        <li><a href="/dashboard" class="active">Dashboard</a></li>
+        <li><a href="/clients">Clients</a></li>
+        <li><a href="/services">Services</a></li>
+        <li><a href="/quotes">Quotes</a></li>
+        <li><a href="/invoices">Invoices</a></li>
+        <li><a href="/payments">Payments</a></li>
+        <li><a href="/expenses">Expenses</a></li>
+        <li><a href="/cashflow">Cash Flow</a></li>
+        <li><a href="/reports">Reports</a></li>
+        <li><a href="/insights">Insights</a></li>
+        <li><a href="/settings">Settings</a></li>
+        <li><button onclick="logout()" class="btn btn-outline btn-sm">Logout</button></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="container" style="padding: 2rem 1rem;">
+    <h1 style="margin-bottom: 2rem;">Dashboard</h1>
+
+    <div class="dashboard-grid" id="statsGrid">
+      <div class="stat-card">
+        <div class="stat-label">Total Revenue</div>
+        <div class="stat-value" id="totalRevenue">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Payments</div>
+        <div class="stat-value" id="totalPayments">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Outstanding Invoices</div>
+        <div class="stat-value" id="outstandingInvoices">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Overdue Invoices</div>
+        <div class="stat-value" id="overdueInvoices" style="color: var(--danger);">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Pending Invoices</div>
+        <div class="stat-value" id="pendingInvoices">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Clients</div>
+        <div class="stat-value" id="clientCount">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Invoices</div>
+        <div class="stat-value" id="invoiceCount">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Quotes</div>
+        <div class="stat-value" id="quoteCount">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Expenses</div>
+        <div class="stat-value" id="totalExpenses" style="color: var(--danger);">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Net Cash Flow</div>
+        <div class="stat-value" id="netCashFlow">-</div>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); gap: 2rem;">
+      <div class="card">
+        <div class="card-header">Recent Invoices</div>
+        <div id="recentInvoices">Loading...</div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">Recent Payments</div>
+        <div id="recentPayments">Loading...</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/dashboard.js"></script>
+  <script>
+    checkAuth();
+
+    const organization = getOrganization();
+    const currency = organization ? organization.currency : 'USD';
+
+    async function loadDashboard() {
+      try {
+        const result = await apiCall('/dashboard/metrics');
+        const metrics = result.metrics;
+
+        document.getElementById('totalRevenue').textContent = formatCurrency(metrics.totalRevenue, currency);
+        document.getElementById('totalPayments').textContent = metrics.totalPayments;
+        document.getElementById('outstandingInvoices').textContent = metrics.outstandingInvoices;
+        document.getElementById('overdueInvoices').textContent = metrics.overdueInvoices;
+        document.getElementById('pendingInvoices').textContent = metrics.pendingInvoices;
+        document.getElementById('clientCount').textContent = metrics.clientCount;
+        document.getElementById('invoiceCount').textContent = metrics.invoiceCount;
+        document.getElementById('quoteCount').textContent = metrics.quoteCount;
+        document.getElementById('totalExpenses').textContent = formatCurrency(metrics.totalExpenses, currency);
+        document.getElementById('netCashFlow').textContent = formatCurrency(metrics.netCashFlow, currency);
+
+        const netCashFlowEl = document.getElementById('netCashFlow');
+        if (metrics.netCashFlow < 0) {
+          netCashFlowEl.style.color = 'var(--danger)';
+        } else if (metrics.netCashFlow > 0) {
+          netCashFlowEl.style.color = 'var(--success)';
+        }
+
+        let invoicesHtml = '<table class="table"><thead><tr><th>Invoice #</th><th>Client</th><th>Amount</th><th>Status</th></tr></thead><tbody>';
+        metrics.recentInvoices.forEach(inv => {
+          const statusClass = inv.status === 'PAID' ? 'badge-success' : inv.status === 'OVERDUE' ? 'badge-danger' : 'badge-warning';
+          invoicesHtml += `<tr><td>${inv.invoiceNumber}</td><td>${inv.client.name}</td><td>${formatCurrency(inv.total, currency)}</td><td><span class="badge ${statusClass}">${inv.status}</span></td></tr>`;
+        });
+        invoicesHtml += '</tbody></table>';
+        document.getElementById('recentInvoices').innerHTML = invoicesHtml || '<p>No recent invoices</p>';
+
+        let paymentsHtml = '<table class="table"><thead><tr><th>Date</th><th>Invoice</th><th>Amount</th><th>Method</th></tr></thead><tbody>';
+        metrics.recentPayments.forEach(pay => {
+          paymentsHtml += `<tr><td>${formatDate(pay.paidAt)}</td><td>${pay.invoice.invoiceNumber}</td><td>${formatCurrency(pay.amount, currency)}</td><td>${pay.method}</td></tr>`;
+        });
+        paymentsHtml += '</tbody></table>';
+        document.getElementById('recentPayments').innerHTML = paymentsHtml || '<p>No recent payments</p>';
+      } catch (error) {
+        console.error('Error loading dashboard:', error);
+      }
+    }
+
+    loadDashboard();
+  </script>
+</body>
+</html>

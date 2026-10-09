@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings - PayShield</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container navbar-content">
+      <a href="/dashboard" class="navbar-brand">PayShield</a>
+      <ul class="navbar-nav">
+        <li><a href="/dashboard">Dashboard</a></li>
+        <li><a href="/clients">Clients</a></li>
+        <li><a href="/services">Services</a></li>
+        <li><a href="/quotes">Quotes</a></li>
+        <li><a href="/invoices">Invoices</a></li>
+        <li><a href="/payments">Payments</a></li>
+        <li><a href="/expenses">Expenses</a></li>
+        <li><a href="/cashflow">Cash Flow</a></li>
+        <li><a href="/reports">Reports</a></li>
+        <li><a href="/insights">Insights</a></li>
+        <li><a href="/settings" class="active">Settings</a></li>
+        <li><button onclick="logout()" class="btn btn-outline btn-sm">Logout</button></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="container" style="padding: 2rem 1rem;">
+    <h1 style="margin-bottom: 2rem;">Settings</h1>
+
+    <div class="card" style="margin-bottom: 2rem;">
+      <div class="card-header">Organization Information</div>
+      <div id="orgInfo">
+        <p style="color: var(--text-light);">Loading...</p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom: 2rem;">
+      <div class="card-header">User Information</div>
+      <div id="userInfo">
+        <p style="color: var(--text-light);">Loading...</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Payment Provider Configuration</div>
+      <p style="color: var(--text-light); margin-bottom: 1rem;">
+        Payment provider integrations (M-Pesa, Bank, Card processors) require credentials and configuration.
+        These integrations are prepared in the architecture but not yet configured.
+      </p>
+      <div style="padding: 1rem; background: var(--background); border-radius: 0.375rem;">
+        <p><strong>M-Pesa:</strong> Requires Consumer Key, Consumer Secret, Passkey, and Shortcode</p>
+        <p><strong>Bank API:</strong> Requires API Key and API Secret</p>
+        <p><strong>Card Processing:</strong> Requires Stripe or other processor credentials</p>
+        <p><strong>AI Provider:</strong> Requires API key for business intelligence features</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/dashboard.js"></script>
+  <script>
+    checkAuth();
+
+    async function loadSettings() {
+      try {
+        const result = await apiCall('/auth/me');
+        const user = result.user;
+        const organization = result.organization;
+
+        document.getElementById('orgInfo').innerHTML = `
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+            <div>
+              <strong>Organization Name:</strong><br>
+              ${organization.name}
+            </div>
+            <div>
+              <strong>Currency:</strong><br>
+              ${organization.currency}
+            </div>
+            <div>
+              <strong>Country:</strong><br>
+              ${organization.country || 'Not set'}
+            </div>
+            <div>
+              <strong>Email:</strong><br>
+              ${organization.email || 'Not set'}
+            </div>
+            <div>
+              <strong>Phone:</strong><br>
+              ${organization.phone || 'Not set'}
+            </div>
+            <div>
+              <strong>Timezone:</strong><br>
+              ${organization.timezone}
+            </div>
+          </div>
+        `;
+
+        document.getElementById('userInfo').innerHTML = `
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+            <div>
+              <strong>Name:</strong><br>
+              ${user.name}
+            </div>
+            <div>
+              <strong>Email:</strong><br>
+              ${user.email}
+            </div>
+            <div>
+              <strong>Role:</strong><br>
+              ${user.role}
+            </div>
+          </div>
+        `;
+      } catch (error) {
+        console.error('Error loading settings:', error);
+      }
+    }
+
+    loadSettings();
+  </script>
+</body>
+</html>

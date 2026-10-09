@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Expenses - PayShield</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container navbar-content">
+      <a href="/dashboard" class="navbar-brand">PayShield</a>
+      <ul class="navbar-nav">
+        <li><a href="/dashboard">Dashboard</a></li>
+        <li><a href="/clients">Clients</a></li>
+        <li><a href="/services">Services</a></li>
+        <li><a href="/quotes">Quotes</a></li>
+        <li><a href="/invoices">Invoices</a></li>
+        <li><a href="/payments">Payments</a></li>
+        <li><a href="/expenses" class="active">Expenses</a></li>
+        <li><a href="/cashflow">Cash Flow</a></li>
+        <li><a href="/reports">Reports</a></li>
+        <li><a href="/insights">Insights</a></li>
+        <li><a href="/settings">Settings</a></li>
+        <li><button onclick="logout()" class="btn btn-outline btn-sm">Logout</button></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="container" style="padding: 2rem 1rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+      <h1>Expenses</h1>
+      <button onclick="openModal()" class="btn btn-primary">Add Expense</button>
+    </div>
+
+    <div class="card">
+      <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+        <input type="text" id="searchInput" class="form-control" placeholder="Search expenses..." onkeyup="filterExpenses()">
+        <select id="categoryFilter" class="form-control" style="width: 200px;" onchange="filterExpenses()">
+          <option value="">All Categories</option>
+          <option value="Office">Office</option>
+          <option value="Travel">Travel</option>
+          <option value="Marketing">Marketing</option>
+          <option value="Utilities">Utilities</option>
+          <option value="Salaries">Salaries</option>
+          <option value="Software">Software</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div id="expensesList">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Category</th>
+              <th>Description</th>
+              <th>Amount</th>
+              <th>Currency</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="expensesTableBody">
+            <tr><td colspan="6" style="text-align: center;">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="expenseModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title" id="modalTitle">Add Expense</h2>
+        <button onclick="closeModal()" class="modal-close">&times;</button>
+      </div>
+      <form id="expenseForm">
+        <input type="hidden" id="expenseId">
+        <div class="form-group">
+          <label for="expenseCategory">Category *</label>
+          <select id="expenseCategory" class="form-control" required>
+            <option value="">Select Category</option>
+            <option value="Office">Office</option>
+            <option value="Travel">Travel</option>
+            <option value="Marketing">Marketing</option>
+            <option value="Utilities">Utilities</option>
+            <option value="Salaries">Salaries</option>
+            <option value="Software">Software</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="expenseDescription">Description *</label>
+          <input type="text" id="expenseDescription" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label for="expenseAmount">Amount *</label>
+          <input type="number" id="expenseAmount" class="form-control" step="0.01" required>
+        </div>
+        <div class="form-group">
+          <label for="expenseCurrency">Currency</label>
+          <select id="expenseCurrency" class="form-control">
+            <option value="USD">USD</option>
+            <option value="KES">KES</option>
+            <option value="UGX">UGX</option>
+            <option value="TZS">TZS</option>
+            <option value="RWF">RWF</option>
+            <option value="GBP">GBP</option>
+            <option value="EUR">EUR</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="expenseDate">Date *</label>
+          <input type="date" id="expenseDate" class="form-control" required>
+        </div>
+        <div class="modal-footer">
+          <button type="button" onclick="closeModal()" class="btn btn-outline">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/js/dashboard.js"></script>
+  <script>
+    checkAuth();
+    let allExpenses = [];
+
+    async function loadExpenses() {
+      try {
+        const result = await apiCall('/expenses');
+        allExpenses = result.expenses;
+        renderExpenses(allExpenses);
+      } catch (error) {
+        console.error('Error loading expenses:', error);
+      }
+    }
+
+    function renderExpenses(expenses) {
+      const tbody = document.getElementById('expensesTableBody');
+      if (expenses.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No expenses found</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = expenses.map(expense => `
+        <tr>
+          <td>${formatDate(expense.date)}</td>
+          <td>${expense.category}</td>
+          <td>${expense.description}</td>
+          <td>${formatCurrency(expense.amount, expense.currency)}</td>
+          <td>${expense.currency}</td>
+          <td>
+            <button onclick="editExpense('${expense.id}')" class="btn btn-outline btn-sm">Edit</button>
+            <button onclick="deleteExpense('${expense.id}')" class="btn btn-danger btn-sm">Delete</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function filterExpenses() {
+      const search = document.getElementById('searchInput').value.toLowerCase();
+      const category = document.getElementById('categoryFilter').value;
+
+      let filtered = allExpenses;
+
+      if (search) {
+        filtered = filtered.filter(e =>
+          e.description.toLowerCase().includes(search) ||
+          e.category.toLowerCase().includes(search)
+        );
+      }
+
+      if (category) {
+        filtered = filtered.filter(e => e.category === category);
+      }
+
+      renderExpenses(filtered);
+    }
+
+    function openModal(expenseId = null) {
+      const modal = document.getElementById('expenseModal');
+      const form = document.getElementById('expenseForm');
+      const title = document.getElementById('modalTitle');
+
+      form.reset();
+      document.getElementById('expenseId').value = '';
+      document.getElementById('expenseDate').value = new Date().toISOString().split('T')[0];
+
+      if (expenseId) {
+        title.textContent = 'Edit Expense';
+        const expense = allExpenses.find(e => e.id === expenseId);
+        if (expense) {
+          document.getElementById('expenseId').value = expense.id;
+          document.getElementById('expenseCategory').value = expense.category;
+          document.getElementById('expenseDescription').value = expense.description;
+          document.getElementById('expenseAmount').value = expense.amount;
+          document.getElementById('expenseCurrency').value = expense.currency;
+          document.getElementById('expenseDate').value = new Date(expense.date).toISOString().split('T')[0];
+        }
+      } else {
+        title.textContent = 'Add Expense';
+      }
+
+      modal.classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('expenseModal').classList.remove('active');
+    }
+
+    async function saveExpense(e) {
+      e.preventDefault();
+      const id = document.getElementById('expenseId').value;
+      const data = {
+        category: document.getElementById('expenseCategory').value,
+        description: document.getElementById('expenseDescription').value,
+        amount: parseFloat(document.getElementById('expenseAmount').value),
+        currency: document.getElementById('expenseCurrency').value,
+        date: document.getElementById('expenseDate').value,
+      };
+
+      try {
+        if (id) {
+          await apiCall(`/expenses/${id}`, 'PUT', data);
+        } else {
+          await apiCall('/expenses', 'POST', data);
+        }
+        closeModal();
+        loadExpenses();
+      } catch (error) {
+        alert('Error saving expense: ' + error.message);
+      }
+    }
+
+    function editExpense(id) {
+      openModal(id);
+    }
+
+    async function deleteExpense(id) {
+      if (!confirm('Are you sure you want to delete this expense?')) return;
+
+      try {
+        await apiCall(`/expenses/${id}`, 'DELETE');
+        loadExpenses();
+      } catch (error) {
+        alert('Error deleting expense: ' + error.message);
+      }
+    }
+
+    document.getElementById('expenseForm').addEventListener('submit', saveExpense);
+    loadExpenses();
+  </script>
+</body>
+</html>

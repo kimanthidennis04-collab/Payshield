@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payments - PayShield</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container navbar-content">
+      <a href="/dashboard" class="navbar-brand">PayShield</a>
+      <ul class="navbar-nav">
+        <li><a href="/dashboard">Dashboard</a></li>
+        <li><a href="/clients">Clients</a></li>
+        <li><a href="/services">Services</a></li>
+        <li><a href="/quotes">Quotes</a></li>
+        <li><a href="/invoices">Invoices</a></li>
+        <li><a href="/payments" class="active">Payments</a></li>
+        <li><a href="/expenses">Expenses</a></li>
+        <li><a href="/cashflow">Cash Flow</a></li>
+        <li><a href="/reports">Reports</a></li>
+        <li><a href="/insights">Insights</a></li>
+        <li><a href="/settings">Settings</a></li>
+        <li><button onclick="logout()" class="btn btn-outline btn-sm">Logout</button></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="container" style="padding: 2rem 1rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+      <h1>Payments</h1>
+      <button onclick="openModal()" class="btn btn-primary">Record Payment</button>
+    </div>
+
+    <div class="card">
+      <div id="paymentsList">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Invoice #</th>
+              <th>Client</th>
+              <th>Amount</th>
+              <th>Method</th>
+              <th>Reference</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="paymentsTableBody">
+            <tr><td colspan="7" style="text-align: center;">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="paymentModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">Record Payment</h2>
+        <button onclick="closeModal()" class="modal-close">&times;</button>
+      </div>
+      <form id="paymentForm">
+        <div class="form-group">
+          <label for="paymentInvoice">Invoice *</label>
+          <select id="paymentInvoice" class="form-control" required onchange="loadInvoiceDetails()">
+            <option value="">Select Invoice</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="paymentAmount">Amount *</label>
+          <input type="number" id="paymentAmount" class="form-control" step="0.01" required>
+          <small id="balanceHint" style="color: var(--text-light);"></small>
+        </div>
+        <div class="form-group">
+          <label for="paymentMethod">Method *</label>
+          <select id="paymentMethod" class="form-control" required>
+            <option value="CASH">Cash</option>
+            <option value="BANK_TRANSFER">Bank Transfer</option>
+            <option value="MOBILE_MONEY">Mobile Money</option>
+            <option value="CARD">Card</option>
+            <option value="CHECK">Check</option>
+            <option value="OTHER">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="paymentProvider">Provider</label>
+          <select id="paymentProvider" class="form-control">
+            <option value="OTHER">Other</option>
+            <option value="MPESA">M-Pesa</option>
+            <option value="BANK">Bank</option>
+            <option value="CARD">Card</option>
+            <option value="STRIPE">Stripe</option>
+            <option value="PAYPAL">PayPal</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="paymentReference">Reference</label>
+          <input type="text" id="paymentReference" class="form-control">
+        </div>
+        <div class="form-group">
+          <label for="paymentDate">Date</label>
+          <input type="date" id="paymentDate" class="form-control">
+        </div>
+        <div class="modal-footer">
+          <button type="button" onclick="closeModal()" class="btn btn-outline">Cancel</button>
+          <button type="submit" class="btn btn-primary">Record Payment</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/js/dashboard.js"></script>
+  <script>
+    checkAuth();
+    let allPayments = [];
+    let allInvoices = [];
+
+    async function loadPayments() {
+      try {
+        const [paymentsResult, invoicesResult] = await Promise.all([
+          apiCall('/payments'),
+          apiCall('/invoices'),
+        ]);
+        allPayments = paymentsResult.payments;
+        allInvoices = invoicesResult.invoices;
+
+        const invoiceSelect = document.getElementById('paymentInvoice');
+        const pendingInvoices = allInvoices.filter(i => i.status !== 'PAID' && i.status !== 'CANCELLED');
+        invoiceSelect.innerHTML = '<option value="">Select Invoice</option>' +
+          pendingInvoices.map(i => {
+            const paid = i.payments.reduce((sum, p) => sum + p.amount, 0);
+            return `<option value="${i.id}">${i.invoiceNumber} - Balance: ${formatCurrency(i.total - paid)}</option>`;
+          }).join('');
+
+        renderPayments(allPayments);
+      } catch (error) {
+        console.error('Error loading payments:', error);
+      }
+    }
+
+    function renderPayments(payments) {
+      const tbody = document.getElementById('paymentsTableBody');
+      if (payments.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No payments found</td></tr>';
+        return;
+      }
+
+      const currency = getOrganization()?.currency || 'USD';
+
+      tbody.innerHTML = payments.map(payment => {
+        const invoice = payment.invoice;
+        const client = invoice ? invoice.client : null;
+        const statusClass = payment.status === 'COMPLETED' ? 'badge-success' : payment.status === 'FAILED' ? 'badge-danger' : 'badge-warning';
+        return `
+          <tr>
+            <td>${formatDate(payment.paidAt)}</td>
+            <td>${invoice ? invoice.invoiceNumber : '-'}</td>
+            <td>${client ? client.name : '-'}</td>
+            <td>${formatCurrency(payment.amount, currency)}</td>
+            <td>${payment.method}</td>
+            <td>${payment.reference || '-'}</td>
+            <td><span class="badge ${statusClass}">${payment.status}</span></td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function openModal() {
+      const modal = document.getElementById('paymentModal');
+      const form = document.getElementById('paymentForm');
+
+      form.reset();
+      document.getElementById('paymentDate').value = new Date().toISOString().split('T')[0];
+      document.getElementById('balanceHint').textContent = '';
+
+      modal.classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('paymentModal').classList.remove('active');
+    }
+
+    function loadInvoiceDetails() {
+      const invoiceId = document.getElementById('paymentInvoice').value;
+      const hint = document.getElementById('balanceHint');
+
+      if (!invoiceId) {
+        hint.textContent = '';
+        return;
+      }
+
+      const invoice = allInvoices.find(i => i.id === invoiceId);
+      if (invoice) {
+        const paid = invoice.payments.reduce((sum, p) => sum + p.amount, 0);
+        const balance = invoice.total - paid;
+        hint.textContent = `Outstanding balance: ${formatCurrency(balance)}`;
+        document.getElementById('paymentAmount').value = balance.toFixed(2);
+      }
+    }
+
+    async function savePayment(e) {
+      e.preventDefault();
+
+      const data = {
+        invoiceId: document.getElementById('paymentInvoice').value,
+        amount: parseFloat(document.getElementById('paymentAmount').value),
+        method: document.getElementById('paymentMethod').value,
+        provider: document.getElementById('paymentProvider').value,
+        reference: document.getElementById('paymentReference').value || null,
+        paidAt: document.getElementById('paymentDate').value || null,
+      };
+
+      try {
+        await apiCall('/payments', 'POST', data);
+        closeModal();
+        loadPayments();
+        alert('Payment recorded successfully');
+      } catch (error) {
+        alert('Error recording payment: ' + error.message);
+      }
+    }
+
+    document.getElementById('paymentForm').addEventListener('submit', savePayment);
+    loadPayments();
+  </script>
+</body>
+</html>

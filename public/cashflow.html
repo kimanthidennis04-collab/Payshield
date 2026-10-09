@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cash Flow - PayShield</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container navbar-content">
+      <a href="/dashboard" class="navbar-brand">PayShield</a>
+      <ul class="navbar-nav">
+        <li><a href="/dashboard">Dashboard</a></li>
+        <li><a href="/clients">Clients</a></li>
+        <li><a href="/services">Services</a></li>
+        <li><a href="/quotes">Quotes</a></li>
+        <li><a href="/invoices">Invoices</a></li>
+        <li><a href="/payments">Payments</a></li>
+        <li><a href="/expenses">Expenses</a></li>
+        <li><a href="/cashflow" class="active">Cash Flow</a></li>
+        <li><a href="/reports">Reports</a></li>
+        <li><a href="/insights">Insights</a></li>
+        <li><a href="/settings">Settings</a></li>
+        <li><button onclick="logout()" class="btn btn-outline btn-sm">Logout</button></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="container" style="padding: 2rem 1rem;">
+    <h1 style="margin-bottom: 2rem;">Cash Flow</h1>
+
+    <div class="card" style="margin-bottom: 2rem;">
+      <div class="card-header">Date Range</div>
+      <div style="display: flex; gap: 1rem; align-items: flex-end;">
+        <div class="form-group" style="flex: 1;">
+          <label for="startDate">Start Date</label>
+          <input type="date" id="startDate" class="form-control">
+        </div>
+        <div class="form-group" style="flex: 1;">
+          <label for="endDate">End Date</label>
+          <input type="date" id="endDate" class="form-control">
+        </div>
+        <button onclick="loadCashFlow()" class="btn btn-primary">Apply</button>
+      </div>
+    </div>
+
+    <div class="dashboard-grid" id="cashFlowStats">
+      <div class="stat-card">
+        <div class="stat-label">Money Received</div>
+        <div class="stat-value" id="moneyReceived">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Expenses</div>
+        <div class="stat-value" id="totalExpenses" style="color: var(--danger);">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Outstanding Receivables</div>
+        <div class="stat-value" id="outstandingReceivables" style="color: var(--warning);">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Overdue Receivables</div>
+        <div class="stat-value" id="overdueReceivables" style="color: var(--danger);">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Net Cash Flow</div>
+        <div class="stat-value" id="netCashFlow">-</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Cash Flow Summary</div>
+      <div id="cashFlowSummary">
+        <p style="color: var(--text-light);">Select a date range and click Apply to view cash flow data.</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/dashboard.js"></script>
+  <script>
+    checkAuth();
+
+    const organization = getOrganization();
+    const currency = organization ? organization.currency : 'USD';
+
+    function setDefaultDates() {
+      const end = new Date();
+      const start = new Date();
+      start.setMonth(start.getMonth() - 1);
+
+      document.getElementById('startDate').value = start.toISOString().split('T')[0];
+      document.getElementById('endDate').value = end.toISOString().split('T')[0];
+    }
+
+    async function loadCashFlow() {
+      const startDate = document.getElementById('startDate').value;
+      const endDate = document.getElementById('endDate').value;
+
+      if (!startDate || !endDate) {
+        alert('Please select both start and end dates');
+        return;
+      }
+
+      try {
+        const result = await apiCall(`/dashboard/cashflow?startDate=${startDate}&endDate=${endDate}`);
+        const cashFlow = result.cashFlow;
+
+        document.getElementById('moneyReceived').textContent = formatCurrency(cashFlow.moneyReceived, currency);
+        document.getElementById('totalExpenses').textContent = formatCurrency(cashFlow.totalExpenses, currency);
+        document.getElementById('outstandingReceivables').textContent = formatCurrency(cashFlow.outstandingReceivables, currency);
+        document.getElementById('overdueReceivables').textContent = formatCurrency(cashFlow.overdueReceivables, currency);
+        document.getElementById('netCashFlow').textContent = formatCurrency(cashFlow.netCashFlow, currency);
+
+        const netCashFlowEl = document.getElementById('netCashFlow');
+        if (cashFlow.netCashFlow < 0) {
+          netCashFlowEl.style.color = 'var(--danger)';
+        } else if (cashFlow.netCashFlow > 0) {
+          netCashFlowEl.style.color = 'var(--success)';
+        } else {
+          netCashFlowEl.style.color = 'var(--text)';
+        }
+
+        const summary = `
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+            <div>
+              <strong>Period:</strong><br>
+              ${formatDate(cashFlow.startDate)} - ${formatDate(cashFlow.endDate)}
+            </div>
+            <div>
+              <strong>Money Received:</strong><br>
+              ${formatCurrency(cashFlow.moneyReceived, currency)}
+            </div>
+            <div>
+              <strong>Total Expenses:</strong><br>
+              ${formatCurrency(cashFlow.totalExpenses, currency)}
+            </div>
+            <div>
+              <strong>Outstanding Receivables:</strong><br>
+              ${formatCurrency(cashFlow.outstandingReceivables, currency)}
+            </div>
+            <div>
+              <strong>Overdue Receivables:</strong><br>
+              ${formatCurrency(cashFlow.overdueReceivables, currency)}
+            </div>
+            <div>
+              <strong>Net Cash Flow:</strong><br>
+              <span style="color: ${cashFlow.netCashFlow >= 0 ? 'var(--success)' : 'var(--danger)'}">
+                ${formatCurrency(cashFlow.netCashFlow, currency)}
+              </span>
+            </div>
+          </div>
+        `;
+
+        document.getElementById('cashFlowSummary').innerHTML = summary;
+      } catch (error) {
+        console.error('Error loading cash flow:', error);
+        alert('Error loading cash flow data: ' + error.message);
+      }
+    }
+
+    setDefaultDates();
+    loadCashFlow();
+  </script>
+</body>
+</html>

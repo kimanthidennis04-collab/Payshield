@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reports - PayShield</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container navbar-content">
+      <a href="/dashboard" class="navbar-brand">PayShield</a>
+      <ul class="navbar-nav">
+        <li><a href="/dashboard">Dashboard</a></li>
+        <li><a href="/clients">Clients</a></li>
+        <li><a href="/services">Services</a></li>
+        <li><a href="/quotes">Quotes</a></li>
+        <li><a href="/invoices">Invoices</a></li>
+        <li><a href="/payments">Payments</a></li>
+        <li><a href="/expenses">Expenses</a></li>
+        <li><a href="/cashflow">Cash Flow</a></li>
+        <li><a href="/reports" class="active">Reports</a></li>
+        <li><a href="/insights">Insights</a></li>
+        <li><a href="/settings">Settings</a></li>
+        <li><button onclick="logout()" class="btn btn-outline btn-sm">Logout</button></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="container" style="padding: 2rem 1rem;">
+    <h1 style="margin-bottom: 2rem;">Reports</h1>
+
+    <div class="card" style="margin-bottom: 2rem;">
+      <div class="card-header">Select Report</div>
+      <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+        <button onclick="loadReport('revenue')" class="btn btn-primary">Revenue Report</button>
+        <button onclick="loadReport('payments')" class="btn btn-primary">Payments Report</button>
+        <button onclick="loadReport('outstanding')" class="btn btn-primary">Outstanding Invoices</button>
+        <button onclick="loadReport('overdue')" class="btn btn-primary">Overdue Invoices</button>
+        <button onclick="loadReport('expenses')" class="btn btn-primary">Expenses Report</button>
+        <button onclick="loadReport('balances')" class="btn btn-primary">Client Balances</button>
+        <button onclick="loadReport('transactions')" class="btn btn-primary">Transaction History</button>
+      </div>
+    </div>
+
+    <div class="card" id="dateFilterCard" style="display: none; margin-bottom: 2rem;">
+      <div class="card-header">Date Range</div>
+      <div style="display: flex; gap: 1rem; align-items: flex-end;">
+        <div class="form-group" style="flex: 1;">
+          <label for="reportStartDate">Start Date</label>
+          <input type="date" id="reportStartDate" class="form-control">
+        </div>
+        <div class="form-group" style="flex: 1;">
+          <label for="reportEndDate">End Date</label>
+          <input type="date" id="reportEndDate" class="form-control">
+        </div>
+        <button onclick="applyDateFilter()" class="btn btn-primary">Apply</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header" id="reportTitle">Select a report to view</div>
+      <div id="reportContent">
+        <p style="color: var(--text-light);">Click on a report button above to generate a report.</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/dashboard.js"></script>
+  <script>
+    checkAuth();
+
+    const organization = getOrganization();
+    const currency = organization ? organization.currency : 'USD';
+    let currentReport = null;
+
+    function setDefaultDates() {
+      const end = new Date();
+      const start = new Date();
+      start.setMonth(start.getMonth() - 1);
+
+      document.getElementById('reportStartDate').value = start.toISOString().split('T')[0];
+      document.getElementById('reportEndDate').value = end.toISOString().split('T')[0];
+    }
+
+    async function loadReport(reportType) {
+      currentReport = reportType;
+      const dateFilterCard = document.getElementById('dateFilterCard');
+
+      const reportsWithDates = ['revenue', 'payments', 'expenses', 'transactions'];
+      if (reportsWithDates.includes(reportType)) {
+        dateFilterCard.style.display = 'block';
+        setDefaultDates();
+      } else {
+        dateFilterCard.style.display = 'none';
+      }
+
+      await fetchReport();
+    }
+
+    async function applyDateFilter() {
+      await fetchReport();
+    }
+
+    async function fetchReport() {
+      const startDate = document.getElementById('reportStartDate').value;
+      const endDate = document.getElementById('reportEndDate').value;
+
+      let endpoint = `/reports/${currentReport}`;
+      if (startDate && endDate) {
+        endpoint += `?startDate=${startDate}&endDate=${endDate}`;
+      }
+
+      try {
+        const result = await apiCall(endpoint);
+        const report = result.report;
+        renderReport(report);
+      } catch (error) {
+        console.error('Error loading report:', error);
+        document.getElementById('reportContent').innerHTML = `<p class="alert alert-error">Error loading report: ${error.message}</p>`;
+      }
+    }
+
+    function renderReport(report) {
+      const titleEl = document.getElementById('reportTitle');
+      const contentEl = document.getElementById('reportContent');
+
+      switch (report.type) {
+        case 'REVENUE':
+          titleEl.textContent = 'Revenue Report';
+          contentEl.innerHTML = `
+            <div style="margin-bottom: 1rem;">
+              <strong>Period:</strong> ${formatDate(report.period.start)} - ${formatDate(report.period.end)}<br>
+              <strong>Total Revenue:</strong> ${formatCurrency(report.totalRevenue, currency)}<br>
+              <strong>Transaction Count:</strong> ${report.transactionCount}
+            </div>
+            <table class="table">
+              <thead><tr><th>Date</th><th>Invoice #</th><th>Client</th><th>Amount</th></tr></thead>
+              <tbody>
+                ${report.transactions.map(t => `
+                  <tr>
+                    <td>${formatDate(t.paidAt)}</td>
+                    <td>${t.invoice.invoiceNumber}</td>
+                    <td>${t.invoice.client.name}</td>
+                    <td>${formatCurrency(t.amount, currency)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `;
+          break;
+
+        case 'PAYMENTS':
+          titleEl.textContent = 'Payments Report';
+          contentEl.innerHTML = `
+            <div style="margin-bottom: 1rem;">
+              <strong>Period:</strong> ${formatDate(report.period.start)} - ${formatDate(report.period.end)}<br>
+              <strong>Total Amount:</strong> ${formatCurrency(report.totalAmount, currency)}<br>
+              <strong>Count:</strong> ${report.count}
+            </div>
+            <div style="margin-bottom: 1rem;">
+              <strong>By Method:</strong><br>
+              ${Object.entries(report.byMethod).map(([method, amount]) => `
+                ${method}: ${formatCurrency(amount, currency)}<br>
+              `).join('')}
+            </div>
+            <table class="table">
+              <thead><tr><th>Date</th><th>Invoice #</th><th>Client</th><th>Amount</th><th>Method</th></tr></thead>
+              <tbody>
+                ${report.payments.map(p => `
+                  <tr>
+                    <td>${formatDate(p.paidAt)}</td>
+                    <td>${p.invoice.invoiceNumber}</td>
+                    <td>${p.invoice.client.name}</td>
+                    <td>${formatCurrency(p.amount, currency)}</td>
+                    <td>${p.method}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `;
+          break;
+
+        case 'OUTSTANDING_INVOICES':
+          titleEl.textContent = 'Outstanding Invoices';
+          contentEl.innerHTML = `
+            <div style="margin-bottom: 1rem;">
+              <strong>Count:</strong> ${report.count}<br>
+              <strong>Total Outstanding:</strong> ${formatCurrency(report.totalOutstanding, currency)}
+            </div>
+            <table class="table">
+              <thead><tr><th>Invoice #</th><th>Client</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th><th>Days Overdue</th></tr></thead>
+              <tbody>
+                ${report.invoices.map(inv => `
+                  <tr>
+                    <td>${inv.invoiceNumber}</td>
+                    <td>${inv.client}</td>
+                    <td>${formatCurrency(inv.total, currency)}</td>
+                    <td>${formatCurrency(inv.amountPaid, currency)}</td>
+                    <td>${formatCurrency(inv.balance, currency)}</td>
+                    <td>${inv.status}</td>
+                    <td>${inv.daysOverdue}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `;
+          break;
+
+        case 'OVERDUE_INVOICES':
+          titleEl.textContent = 'Overdue Invoices';
+          contentEl.innerHTML = `
+            <div style="margin-bottom: 1rem;">
+              <strong>Count:</strong> ${report.count}<br>
+              <strong>Total Overdue:</strong> ${formatCurrency(report.totalOverdue, currency)}
+            </div>
+            <table class="table">
+              <thead><tr><th>Invoice #</th><th>Client</th><th>Total</th><th>Paid</th><th>Balance</th><th>Due Date</th><th>Days Overdue</th></tr></thead>
+              <tbody>
+                ${report.invoices.map(inv => `
+                  <tr>
+                    <td>${inv.invoiceNumber}</td>
+                    <td>${inv.client}</td>
+                    <td>${formatCurrency(inv.total, currency)}</td>
+                    <td>${formatCurrency(inv.amountPaid, currency)}</td>
+                    <td>${formatCurrency(inv.balance, currency)}</td>
+                    <td>${formatDate(inv.dueDate)}</td>
+                    <td style="color: var(--danger);">${inv.daysOverdue}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `;
+          break;
+
+        case 'EXPENSES':
+          titleEl.textContent = 'Expenses Report';
+          contentEl.innerHTML = `
+            <div style="margin-bottom: 1rem;">
+              <strong>Period:</strong> ${formatDate(report.period.start)} - ${formatDate(report.period.end)}<br>
+              <strong>Total Expenses:</strong> ${formatCurrency(report.totalExpenses, currency)}<br>
+              <strong>Count:</strong> ${report.count}
+            </div>
+            <div style="margin-bottom: 1rem;">
+              <strong>By Category:</strong><br>
+              ${Object.entries(report.byCategory).map(([category, amount]) => `
+                ${category}: ${formatCurrency(amount, currency)}<br>
+              `).join('')}
+            </div>
+            <table class="table">
+              <thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Amount</th></tr></thead>
+              <tbody>
+                ${report.expenses.map(e => `
+                  <tr>
+                    <td>${formatDate(e.date)}</td>
+                    <td>${e.category}</td>
+                    <td>${e.description}</td>
+                    <td>${formatCurrency(e.amount, currency)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `;
+          break;
+
+        case 'CLIENT_BALANCES':
+          titleEl.textContent = 'Client Balances';
+          contentEl.innerHTML = `
+            <div style="margin-bottom: 1rem;">
+              <strong>Total Outstanding:</strong> ${formatCurrency(report.totalOutstanding, currency)}
+            </div>
+            <table class="table">
+              <thead><tr><th>Client</th><th>Email</th><th>Total Invoices</th><th>Total Paid</th><th>Balance</th></tr></thead>
+              <tbody>
+                ${report.clients.map(c => `
+                  <tr>
+                    <td>${c.clientName}</td>
+                    <td>${c.clientEmail || '-'}</td>
+                    <td>${c.totalInvoices}</td>
+                    <td>${formatCurrency(c.totalPaid, currency)}</td>
+                    <td>${formatCurrency(c.totalBalance, currency)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `;
+          break;
+
+        case 'TRANSACTION_HISTORY':
+          titleEl.textContent = 'Transaction History';
+          contentEl.innerHTML = `
+            <div style="margin-bottom: 1rem;">
+              <strong>Period:</strong> ${formatDate(report.period.start)} - ${formatDate(report.period.end)}<br>
+              <strong>Count:</strong> ${report.count}
+            </div>
+            <table class="table">
+              <thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Source</th><th>Reference</th><th>Status</th></tr></thead>
+              <tbody>
+                ${report.transactions.map(t => `
+                  <tr>
+                    <td>${formatDate(t.createdAt)}</td>
+                    <td>${t.type}</td>
+                    <td>${formatCurrency(t.amount, currency)}</td>
+                    <td>${t.source}</td>
+                    <td>${t.reference || '-'}</td>
+                    <td>${t.status}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `;
+          break;
+
+        default:
+          contentEl.innerHTML = '<p>Unknown report type</p>';
+      }
+    }
+  </script>
+</body>
+</html>

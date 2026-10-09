@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Insights - PayShield</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container navbar-content">
+      <a href="/dashboard" class="navbar-brand">PayShield</a>
+      <ul class="navbar-nav">
+        <li><a href="/dashboard">Dashboard</a></li>
+        <li><a href="/clients">Clients</a></li>
+        <li><a href="/services">Services</a></li>
+        <li><a href="/quotes">Quotes</a></li>
+        <li><a href="/invoices">Invoices</a></li>
+        <li><a href="/payments">Payments</a></li>
+        <li><a href="/expenses">Expenses</a></li>
+        <li><a href="/cashflow">Cash Flow</a></li>
+        <li><a href="/reports">Reports</a></li>
+        <li><a href="/insights" class="active">Insights</a></li>
+        <li><a href="/settings">Settings</a></li>
+        <li><button onclick="logout()" class="btn btn-outline btn-sm">Logout</button></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="container" style="padding: 2rem 1rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+      <h1>AI Business Insights</h1>
+      <button onclick="generateInsights()" class="btn btn-primary">Generate New Insights</button>
+    </div>
+
+    <div class="card" style="margin-bottom: 2rem;">
+      <div class="card-header">About AI Insights</div>
+      <p style="color: var(--text-light);">
+        PayShield analyzes your business data to provide intelligent insights about cash flow, payment patterns, expenses, and potential risks.
+        Click "Generate New Insights" to analyze your current business data.
+      </p>
+    </div>
+
+    <div id="insightsList">
+      <div class="card">
+        <p style="color: var(--text-light);">No insights generated yet. Click "Generate New Insights" to start.</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/dashboard.js"></script>
+  <script>
+    checkAuth();
+
+    async function loadInsights() {
+      try {
+        const result = await apiCall('/insights');
+        const insights = result.insights;
+        renderInsights(insights);
+      } catch (error) {
+        console.error('Error loading insights:', error);
+        document.getElementById('insightsList').innerHTML = `
+          <div class="card">
+            <p class="alert alert-error">Error loading insights: ${error.message}</p>
+          </div>
+        `;
+      }
+    }
+
+    function renderInsights(insights) {
+      const container = document.getElementById('insightsList');
+
+      if (insights.length === 0) {
+        container.innerHTML = `
+          <div class="card">
+            <p style="color: var(--text-light);">No insights generated yet. Click "Generate New Insights" to start.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = insights.map(insight => {
+        const severityClass = insight.severity === 'CRITICAL' ? 'alert-error' : insight.severity === 'WARNING' ? 'alert-info' : 'alert-success';
+        return `
+          <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+              <h3 style="margin: 0;">${insight.title}</h3>
+              <span class="badge ${insight.severity === 'CRITICAL' ? 'badge-danger' : insight.severity === 'WARNING' ? 'badge-warning' : 'badge-success'}">${insight.severity}</span>
+            </div>
+            <p style="color: var(--text-light); margin-bottom: 0.5rem;">${insight.type}</p>
+            <p>${insight.content}</p>
+            <small style="color: var(--text-light);">Generated: ${formatDate(insight.createdAt)}</small>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function generateInsights() {
+      const button = event.target;
+      button.disabled = true;
+      button.textContent = 'Generating...';
+
+      try {
+        const result = await apiCall('/insights/generate', 'POST');
+        renderInsights(result.insights);
+      } catch (error) {
+        console.error('Error generating insights:', error);
+        alert('Error generating insights: ' + error.message);
+      } finally {
+        button.disabled = false;
+        button.textContent = 'Generate New Insights';
+      }
+    }
+
+    loadInsights();
+  </script>
+</body>
+</html>
