@@ -1,92 +1,298 @@
-datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
-}
-
 generator client {
   provider = "prisma-client-js"
 }
 
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
 model Organization {
-  id           Int       @id @default(autoincrement())
-  name         String
-  currency     String    @default("USD")
-  clients      Client[]
-  invoices     Invoice[]
-  createdAt    DateTime  @default(now())
+  id          String   @id @default(uuid())
+  name        String
+  country     String?
+  currency    String   @default("USD")
+  timezone    String   @default("UTC")
+  email       String?
+  phone       String?
+  address     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
+  clients     Client[]
+  services    Service[]
+  quotes      Quote[]
+  invoices    Invoice[]
+  payments    Payment[]
+  expenses    Expense[]
+  transactions Transaction[]
+  webhookLogs WebhookLog[]
+  aiInsights  AIInsight[]
+  auditLogs   AuditLog[]
+
+  @@index([country])
+  @@index([currency])
+}
+
+model User {
+  id             String    @id @default(uuid())
+  organizationId String
+  name           String
+  email          String    @unique
+  password       String
+  role           String    @default("STAFF")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  auditLogs      AuditLog[]
+
+  @@index([organizationId])
+  @@index([email])
 }
 
 model Client {
-  id             Int          @id @default(autoincrement())
+  id             String    @id @default(uuid())
+  organizationId String
   name           String
-  email          String       @unique
-  phone          String?      // <--- Add this line
-  organizationId Int
-  organization   Organization @relation(fields: [organizationId], references: [id])
+  email          String?
+  phone          String?
+  address        String?
+  country        String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  quotes         Quote[]
   invoices       Invoice[]
-  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+  @@index([email])
 }
 
-model Invoice {
-  id               Int           @id @default(autoincrement())
-  invoiceNumber    String        @unique
-  amount           Float
-  tax              Float         @default(0.0)
-  discount         Float         @default(0.0)
-  status           String        @default("Draft") // Draft, Sent, Pending, Overdue, Paid
-  lineItems        String?       // JSON string of line items & quantities
-  clientId         Int
-  client           Client        @relation(fields: [clientId], references: [id])
-  organizationId   Int
-  organization     Organization  @relation(fields: [organizationId], references: [id])
-  payments         Payment[]
-  deliverable      Deliverable?
-  dueDate          DateTime?
-  createdAt        DateTime      @default(now())
-}
+model Service {
+  id             String    @id @default(uuid())
+  organizationId String
+  name           String
+  description    String?
+  price          Float
+  currency       String    @default("USD")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-model Payment {
-  id            Int      @id @default(autoincrement())
-  amount        Float
-  status        String   @default("SUCCESS") // SUCCESS, PENDING, FAILED
-  reference     String?  // Transaction reference / M-Pesa code / Stripe ID
-  invoiceId     Int
-  invoice       Invoice  @relation(fields: [invoiceId], references: [id])
-  createdAt     DateTime @default(now())
-}
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  quoteItems     QuoteItem[]
+  invoiceItems   InvoiceItem[]
 
-model Deliverable {
-  id           Int      @id @default(autoincrement())
-  title        String
-  lockedUrl    String   // The secret project link or file URL
-  isUnlocked   Boolean  @default(false)
-  invoiceId    Int      @unique
-  invoice      Invoice  @relation(fields: [invoiceId], references: [id])
-  createdAt    DateTime @default(now())
-}
-
-model Subscription {
-  id             Int      @id @default(autoincrement())
-  planName       String   @default("Pro") // Starter, Pro, Enterprise ($50 tier)
-  status         String   @default("ACTIVE") // ACTIVE, TRIAL, CANCELED
-  organizationId Int      @unique
-  amount         Float    @default(50.00)
-  createdAt      DateTime @default(now())
-}
-
-model WebhookLog {
-  id        Int      @id @default(autoincrement())
-  event     String
-  payload   String
-  createdAt DateTime @default(now())
+  @@index([organizationId])
 }
 
 model Quote {
-  id            Int      @id @default(autoincrement())
-  quoteNumber   String   @unique
-  clientName    String
-  amount        Float
-  status        String   @default("Pending")
-  validUntil    DateTime?
-  createdAt     DateTime @default(now())
+  id             String      @id @default(uuid())
+  organizationId String
+  clientId       String
+  quoteNumber    String      @unique
+  status         String      @default("DRAFT")
+  subtotal       Float       @default(0)
+  tax            Float       @default(0)
+  total          Float       @default(0)
+  notes          String?
+  validUntil     DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client         Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  items          QuoteItem[]
+
+  @@index([organizationId])
+  @@index([clientId])
+  @@index([status])
+  @@index([quoteNumber])
+}
+
+model QuoteItem {
+  id          String   @id @default(uuid())
+  quoteId     String
+  serviceId   String?
+  description String
+  quantity    Float
+  unitPrice   Float
+  total       Float
+
+  quote       Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  service     Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+
+  @@index([quoteId])
+  @@index([serviceId])
+}
+
+model Invoice {
+  id             String        @id @default(uuid())
+  organizationId String
+  clientId       String
+  invoiceNumber  String        @unique
+  status         String        @default("DRAFT")
+  subtotal       Float         @default(0)
+  tax            Float         @default(0)
+  total          Float         @default(0)
+  amountPaid     Float         @default(0)
+  balance        Float         @default(0)
+  currency       String        @default("USD")
+  dueDate        DateTime?
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client         Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  items          InvoiceItem[]
+  payments       Payment[]
+  transactions   Transaction[]
+
+  @@index([organizationId])
+  @@index([clientId])
+  @@index([status])
+  @@index([invoiceNumber])
+  @@index([dueDate])
+}
+
+model InvoiceItem {
+  id          String   @id @default(uuid())
+  invoiceId   String
+  serviceId   String?
+  description String
+  quantity    Float
+  unitPrice   Float
+  total       Float
+
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  service     Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+
+  @@index([invoiceId])
+  @@index([serviceId])
+}
+
+model Payment {
+  id             String   @id @default(uuid())
+  organizationId String
+  invoiceId      String
+  amount         Float
+  currency       String   @default("USD")
+  method         String
+  provider       String   @default("OTHER")
+  reference      String?
+  status         String   @default("PENDING")
+  paidAt         DateTime?
+  createdAt      DateTime @default(now())
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice        Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  transactions   Transaction[]
+
+  @@index([organizationId])
+  @@index([invoiceId])
+  @@index([status])
+  @@index([paidAt])
+}
+
+model Expense {
+  id             String   @id @default(uuid())
+  organizationId String
+  category       String
+  description    String
+  amount         Float
+  currency       String   @default("USD")
+  date           DateTime
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([category])
+  @@index([date])
+}
+
+model Transaction {
+  id             String   @id @default(uuid())
+  organizationId String
+  type           String
+  amount         Float
+  currency       String   @default("USD")
+  source         String
+  reference      String?
+  status         String   @default("PENDING")
+  invoiceId      String?
+  paymentId      String?
+  createdAt      DateTime @default(now())
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice        Invoice?     @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  payment        Payment?     @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([type])
+  @@index([status])
+  @@index([invoiceId])
+  @@index([paymentId])
+  @@index([createdAt])
+}
+
+model WebhookLog {
+  id             String   @id @default(uuid())
+  organizationId String?
+  provider       String
+  event          String
+  reference      String?
+  payload        String
+  status         String   @default("RECEIVED")
+  error          String?
+  createdAt      DateTime @default(now())
+
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([provider])
+  @@index([event])
+  @@index([status])
+  @@index([reference])
+}
+
+model AIInsight {
+  id             String   @id @default(uuid())
+  organizationId String
+  type           String
+  title          String
+  content        String
+  severity       String   @default("INFO")
+  createdAt      DateTime @default(now())
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([type])
+  @@index([severity])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id             String   @id @default(uuid())
+  organizationId String
+  userId         String?
+  action         String
+  entity         String
+  entityId       String?
+  metadata       String?
+  createdAt      DateTime @default(now())
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([action])
+  @@index([entity])
+  @@index([createdAt])
 }
